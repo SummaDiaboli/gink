@@ -28,12 +28,17 @@ func UseClick(fn func(x, y int)) {
 // dispatchClick handles a mouse left-click at screen position (mx, my).
 // It finds the innermost focusable whose bounds contain the click, transfers
 // focus to it, and fires any registered UseClick handler for that component.
+//
+// Hit-testing is two-pass:
+//  1. Exact: find the last focusable whose full (x, y, w, h) bounds contain the click.
+//  2. Y-only fallback: if nothing matched exactly (e.g. the component's rendered text
+//     is narrower than the panel the user perceives as clickable), find the last
+//     focusable whose Y range contains the click. This lets users click anywhere in a
+//     list row without needing to land precisely on the text.
 func dispatchClick(mx, my int) {
 	vy := my + scrollOffset
 
-	// Find the last focusable in tree order (innermost) that contains (mx, vy).
-	// Components with zero dimensions are skipped — their bounds were not backfilled
-	// (e.g. they are inside a scrollview sub-buffer not yet supported for clicking).
+	// Pass 1: exact (x + y) hit-test. Take the last (innermost) match.
 	targetIdx := -1
 	for i, f := range focusables {
 		if f.w == 0 || f.h == 0 {
@@ -41,6 +46,18 @@ func dispatchClick(mx, my int) {
 		}
 		if mx >= f.x && mx < f.x+f.w && vy >= f.y && vy < f.y+f.h {
 			targetIdx = i
+		}
+	}
+
+	// Pass 2: Y-only fallback when nothing matched exactly.
+	if targetIdx < 0 {
+		for i, f := range focusables {
+			if f.h == 0 {
+				continue
+			}
+			if vy >= f.y && vy < f.y+f.h {
+				targetIdx = i
+			}
 		}
 	}
 

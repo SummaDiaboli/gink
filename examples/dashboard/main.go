@@ -314,7 +314,7 @@ func App() gink.Element {
 		),
 	)
 	footer := gink.PaddingXY(2, 0,
-		gink.Text("Tab: focus  ·  ↑↓: navigate / scroll log  ·  ←→: filter  ·  PgUp/PgDn: scroll  ·  Esc: quit", hintStyle),
+		gink.Text("Tab/Click: focus  ·  Click row: select  ·  ↑↓: navigate  ·  ←→: filter  ·  PgUp/PgDn: scroll  ·  Esc: quit", hintStyle),
 	)
 	return gink.AppShell(main, footer)
 }

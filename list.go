@@ -65,6 +65,13 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 			}
 		})
 
+		UseClick(func(_, localY int) {
+			target := offset + localY
+			if target >= 0 && target < len(items) {
+				onSelect(target)
+			}
+		})
+
 		end := offset + height
 		if end > len(items) {
 			end = len(items)

@@ -56,6 +56,19 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			}
 		})
 
+		// top-border + header + mid-border occupy the first 3 rows; data rows follow.
+		const tableHeaderRows = 3
+		UseClick(func(_, localY int) {
+			dataRow := localY - tableHeaderRows
+			if dataRow < 0 {
+				return
+			}
+			target := offset + dataRow
+			if target < len(rows) {
+				onSelect(target)
+			}
+		})
+
 		widths := tableCalcWidths(cols, rows)
 
 		end := offset + height

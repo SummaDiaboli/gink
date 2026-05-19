@@ -14,6 +14,7 @@ type componentCache struct {
 	wasFocusedWithin  bool             // isFocusedWithinPath result at render time
 	focusablePaths    []focusable      // focusables entries added by this subtree
 	inputHandlerCache []func(KeyEvent) // inputHandlers entries added by this subtree
+	clickHandlerCache []clickHandler   // clickHandlers entries added by this subtree
 	footerBuf         *Buffer          // non-nil when this subtree rendered a "shell" element
 }
 
@@ -117,6 +118,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 				})
 			}
 			inputHandlers = append(inputHandlers, cache.inputHandlerCache...)
+			clickHandlers = append(clickHandlers, cache.clickHandlerCache...)
 			if cache.footerBuf != nil {
 				rec.FooterBuf = cache.footerBuf
 			}
@@ -127,6 +129,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		// the entries this subtree adds.
 		focusablesBefore := len(focusables)
 		inputsBefore := len(inputHandlers)
+		clicksBefore := len(clickHandlers)
 
 		activeY = y
 		activeX = x
@@ -165,6 +168,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			wasFocusedWithin:  isFocusedWithinPath(path),
 			focusablePaths:    relFocusables,
 			inputHandlerCache: append([]func(KeyEvent){}, inputHandlers[inputsBefore:]...),
+			clickHandlerCache: append([]clickHandler{}, clickHandlers[clicksBefore:]...),
 			cells:             make([][]Cell, h),
 			footerBuf:         rec.FooterBuf,
 		}

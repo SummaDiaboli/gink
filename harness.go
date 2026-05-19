@@ -2,10 +2,18 @@ package gink
 
 import (
 	"strings"
-	"testing"
 
 	"github.com/gdamore/tcell/v2"
 )
+
+// TestingT is the subset of *testing.T that Harness requires.
+// *testing.T satisfies this interface automatically — no import of the
+// testing package is needed in your test files beyond the standard
+// `import "testing"`.
+type TestingT interface {
+	Helper()
+	Fatalf(format string, args ...any)
+}
 
 // Harness renders a component tree into a tcell SimulationScreen so tests
 // can inspect output and simulate input without a real terminal.
@@ -17,19 +25,19 @@ type Harness struct {
 	Width  int
 	Height int
 	buf    *Buffer
-	t      *testing.T
+	t      TestingT
 }
 
 // NewHarness creates a Harness with an 80×24 simulation screen and renders the
 // root component once. Call Render() to re-render after simulating input or
 // state changes triggered by effects.
-func NewHarness(t *testing.T, root Component) *Harness {
+func NewHarness(t TestingT, root Component) *Harness {
 	t.Helper()
 	return NewHarnessSize(t, root, 80, 24)
 }
 
 // NewHarnessSize creates a Harness with custom terminal dimensions.
-func NewHarnessSize(t *testing.T, root Component, width, height int) *Harness {
+func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	t.Helper()
 
 	screen := tcell.NewSimulationScreen("UTF-8")
@@ -161,7 +169,7 @@ func (h *Harness) Enter() {
 	h.SendKey(tcell.KeyEnter)
 }
 
-// Backspace simulates the Backspace key (BS variant) and re-renders.
+// Backspace simulates the Backspace key and re-renders.
 func (h *Harness) Backspace() {
 	h.t.Helper()
 	h.SendKey(tcell.KeyBackspace2)

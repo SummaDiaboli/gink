@@ -4,7 +4,7 @@
 //
 // # Quick start
 //
-//	import "github.com/salim/gink/ginktest"
+//	import "github.com/SummaDiaboli/gink/ginktest"
 //
 //	func TestMyComponent(t *testing.T) {
 //	    h := ginktest.NewHarness(t, MyComponent)
@@ -48,7 +48,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salim/gink"
+	"github.com/SummaDiaboli/gink"
 )
 
 // NewHarness creates a test harness with an 80×24 simulation screen and

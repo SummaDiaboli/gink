@@ -1,4 +1,4 @@
-module github.com/salim/gink
+module github.com/SummaDiaboli/gink
 
 go 1.24.0
 

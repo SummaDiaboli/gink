@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/salim/gink/ginktest"
+	"github.com/SummaDiaboli/gink/ginktest"
 )
 
 // Focus order: Name(0) · Email(1) · Subject(2) · Message(3) · Submit(4)

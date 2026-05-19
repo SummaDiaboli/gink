@@ -3,8 +3,8 @@ package main
 import (
 	"testing"
 
-	"github.com/salim/gink"
-	"github.com/salim/gink/ginktest"
+	"github.com/SummaDiaboli/gink"
+	"github.com/SummaDiaboli/gink/ginktest"
 )
 
 // Focus order in App: TodoList(0) · Input(1) · Add(2)

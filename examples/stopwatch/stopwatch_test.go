@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/salim/gink/ginktest"
+	"github.com/SummaDiaboli/gink/ginktest"
 )
 
 // Focus order: Start/Stop(0) · Lap(1) · Reset(2)

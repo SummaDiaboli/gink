@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/salim/gink"
+	"github.com/SummaDiaboli/gink"
 )
 
 // Todo holds a single task.

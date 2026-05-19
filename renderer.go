@@ -1,21 +1,38 @@
 package gink
 
-import "github.com/gdamore/tcell/v2"
+import (
+	"sync"
+
+	"github.com/gdamore/tcell/v2"
+)
 
 type renderer struct {
-	screen      tcell.Screen
-	dirty       chan struct{}
-	current     *Buffer // last buffer written to the terminal
-	dirtyPaths  map[string]bool
+	screen     tcell.Screen
+	dirty      chan struct{}
+	current    *Buffer // last buffer written to the terminal
+	mu         sync.Mutex
+	dirtyPaths map[string]bool
 }
 
 // markDirty records that the component at path needs re-rendering and schedules a render pass.
+// Safe to call from any goroutine.
 func (r *renderer) markDirty(path string) {
+	r.mu.Lock()
 	if r.dirtyPaths == nil {
 		r.dirtyPaths = make(map[string]bool)
 	}
 	r.dirtyPaths[path] = true
+	r.mu.Unlock()
 	r.scheduleRender()
+}
+
+// snapshotDirty atomically returns the current dirty set and resets it.
+func (r *renderer) snapshotDirty() map[string]bool {
+	r.mu.Lock()
+	snap := r.dirtyPaths
+	r.dirtyPaths = nil
+	r.mu.Unlock()
+	return snap
 }
 
 func newRenderer() (*renderer, error) {

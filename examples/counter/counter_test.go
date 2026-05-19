@@ -3,7 +3,7 @@ package main
 import (
 	"testing"
 
-	"github.com/salim/gink/ginktest"
+	"github.com/SummaDiaboli/gink/ginktest"
 )
 
 // Focus order in App: Input(0) · Increment(1) · Decrement(2) · Toggle Loading(3)

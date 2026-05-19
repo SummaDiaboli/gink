@@ -18,9 +18,10 @@ type componentCache struct {
 // Reconciler walks an Element tree and paints it into a Buffer.
 // It owns the per-component hook stores, keyed by tree path.
 type Reconciler struct {
-	hooks     map[string]*renderContext
-	renderer  *renderer
-	cellCache map[string]componentCache
+	hooks       map[string]*renderContext
+	renderer    *renderer
+	cellCache   map[string]componentCache
+	dirtySnap   map[string]bool // snapshot taken at the start of each Render pass
 }
 
 func NewReconciler(r *renderer) *Reconciler {
@@ -54,12 +55,12 @@ func (rec *Reconciler) needsRender(path string) bool {
 	if cache.focusedIdx != focusedIdx {
 		return true
 	}
-	if rec.renderer.dirtyPaths[path] {
+	if rec.dirtySnap[path] {
 		return true
 	}
 	// Descendant dirty → must traverse into this component to reach it.
 	prefix := path + "/"
-	for dp := range rec.renderer.dirtyPaths {
+	for dp := range rec.dirtySnap {
 		if strings.HasPrefix(dp, prefix) {
 			return true
 		}
@@ -67,7 +68,7 @@ func (rec *Reconciler) needsRender(path string) bool {
 	// Ancestor component dirty → parent produced a new closure with updated props.
 	parts := strings.Split(path, "/")
 	for i := 1; i < len(parts); i++ {
-		if rec.renderer.dirtyPaths[strings.Join(parts[:i], "/")] {
+		if rec.dirtySnap[strings.Join(parts[:i], "/")] {
 			return true
 		}
 	}
@@ -76,8 +77,8 @@ func (rec *Reconciler) needsRender(path string) bool {
 
 func (rec *Reconciler) Render(root Element, w, h int) *Buffer {
 	buf := NewBuffer(w, h)
+	rec.dirtySnap = rec.renderer.snapshotDirty()
 	rec.renderElement(root, buf, 0, 0, "root")
-	rec.renderer.dirtyPaths = nil
 	return buf
 }
 

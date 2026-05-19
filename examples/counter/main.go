@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/salim/gink"
+	"github.com/SummaDiaboli/gink"
 )
 
 var titleStyle = gink.NewStyle().Bold().Foreground(gink.ColorBrightCyan)

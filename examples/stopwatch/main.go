@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/salim/gink"
+	"github.com/SummaDiaboli/gink"
 )
 
 var (

@@ -20,7 +20,7 @@ type TestingT interface {
 // can inspect output and simulate input without a real terminal.
 // Construct one with [NewHarness] or [NewHarnessSize]; close it with [Harness.Close].
 //
-// In most cases, prefer the [github.com/salim/gink/ginktest] package, which
+// In most cases, prefer the [github.com/SummaDiaboli/gink/ginktest] package, which
 // wraps Harness with assertion helpers ([ginktest.AssertContains] etc.).
 // Use Harness directly only when you need lower-level access such as
 // [Harness.Line], [Harness.CellStyle], or custom screen dimensions.

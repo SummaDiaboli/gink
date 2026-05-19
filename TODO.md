@@ -2,26 +2,6 @@
 
 ## Layout Primitives
 
-### Min/Max Sizing (global layout)
-Constrain element dimensions at the layout level.
-- `Width`, `Height` fields on element options (0 = auto)
-
-### Text Wrapping
-Wrap long text at a given column width rather than clipping.
-- `TextWrapped(s string, maxWidth int, styles ...Style) Element`
-- Reconciler splits content into multiple rows
-
----
-
-## Component Library
-
-
-### TextArea
-Multi-line text input (NewInput is single-line only).
-- `NewTextArea(value string, onChange func(string)) func() Element`
-- Enter inserts a newline, Ctrl+Enter or a Submit button submits
-- Fixed or auto-sizing height
-
 ### Table (interactive extensions)
 - Horizontal scrolling for wide tables
 
@@ -68,3 +48,8 @@ Multi-line text input (NewInput is single-line only).
 - Tab auto-scroll — scrolls to show focused component accounting for footer and component height ✓
 - `NewScrollView` — scoped scroll region with Up/Down navigation, scroll indicators, fixed viewport height ✓
 - `UseFocusWithin` — returns true when any descendant holds focus, for styling container borders ✓
+- `TextWrapped` — word-wrap with hard-break, newline support, and optional style ✓
+- `Width` / `Height` / `Size` — exact-dimension wrappers over Constrain ✓
+- `NewTextArea` — multi-line input with cursor, Up/Down/Home/End, viewport scroll, line split/merge ✓
+- `Style.Reverse()` — reverse video for cursor rendering ✓
+- `KeyHome` / `KeyEnd` constants ✓

@@ -64,6 +64,8 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 
 	// Reset all global render state so tests are isolated from each other.
 	focusedIdx = 0
+	focusables = nil
+	prevFocusables = nil
 	activeCtx = nil
 	activePath = ""
 	scrollOffset = 0
@@ -89,6 +91,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 // for async state updates — e.g. polling between [time.Sleep] calls in
 // timing-sensitive tests. For most cases prefer [ginktest.AwaitContains].
 func (h *Harness) renderOnce() {
+	prevFocusables = append(prevFocusables[:0], focusables...)
 	inputHandlers = inputHandlers[:0]
 	pendingEffects = pendingEffects[:0]
 	focusables = focusables[:0]

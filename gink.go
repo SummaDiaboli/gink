@@ -20,6 +20,7 @@ func Render(root Component) error {
 	rec := NewReconciler(r)
 
 	doRender := func() {
+		prevFocusables = append(prevFocusables[:0], focusables...)
 		inputHandlers = inputHandlers[:0]
 		pendingEffects = pendingEffects[:0]
 		focusables = focusables[:0]

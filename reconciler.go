@@ -11,6 +11,7 @@ type componentCache struct {
 	w, h              int
 	cells             [][]Cell         // [row][col], relative to the component's top-left corner
 	focusedIdx        int              // global focusedIdx at time of render
+	wasFocusedWithin  bool             // isFocusedWithinPath result at render time
 	focusablePaths    []focusable      // focusables entries added by this subtree
 	inputHandlerCache []func(KeyEvent) // inputHandlers entries added by this subtree
 	footerBuf         *Buffer          // non-nil when this subtree rendered a "shell" element
@@ -55,6 +56,9 @@ func (rec *Reconciler) needsRender(path string) bool {
 		return true
 	}
 	if cache.focusedIdx != focusedIdx {
+		return true
+	}
+	if isFocusedWithinPath(path) != cache.wasFocusedWithin {
 		return true
 	}
 	if rec.dirtySnap[path] {
@@ -129,6 +133,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		// Build cell cache relative to (x, y).
 		cache := componentCache{
 			w: w, h: h, focusedIdx: focusedIdx,
+			wasFocusedWithin:  isFocusedWithinPath(path),
 			focusablePaths:    append([]focusable{}, focusables[focusablesBefore:]...),
 			inputHandlerCache: append([]func(KeyEvent){}, inputHandlers[inputsBefore:]...),
 			cells:             make([][]Cell, h),
@@ -172,6 +177,65 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		}
 		cw, ch := rec.renderElement(el.Children[0], buf, x+props.Left, y+props.Top, path+"/0")
 		return cw + props.Left + props.Right, ch + props.Top + props.Bottom
+
+	case "scrollview":
+		props := el.Props.(ScrollViewProps)
+		if props.Height <= 0 {
+			return 0, 0
+		}
+
+		// Render child into a tall sub-buffer to capture its full content.
+		subH := props.Height * 8
+		if subH < 256 {
+			subH = 256
+		}
+		subBuf := NewBuffer(buf.Width, subH)
+		cw, ch := rec.renderElement(props.Child, subBuf, 0, 0, path+"/content")
+
+		// Clamp offset so the viewport never scrolls past the last content row.
+		offset := props.Offset
+		maxOffset := ch - props.Height
+		if maxOffset < 0 {
+			maxOffset = 0
+		}
+		if offset > maxOffset {
+			offset = maxOffset
+		}
+		if offset < 0 {
+			offset = 0
+		}
+
+		// Copy the visible slice of the sub-buffer into the main buffer.
+		for row := 0; row < props.Height; row++ {
+			src := row + offset
+			if src < subBuf.Height {
+				for col := 0; col < cw && x+col < buf.Width; col++ {
+					if y+row < buf.Height {
+						buf.Cells[y+row][x+col] = subBuf.Cells[src][col]
+					}
+				}
+			}
+		}
+
+		// Place scroll indicators in a dedicated column to the right of the content
+		// so they never overwrite rendered text. The extra column is only reported
+		// in the returned width when content overflows the viewport.
+		indW := 0
+		if ch > props.Height {
+			indW = 1
+			indCol := x + cw
+			if indCol < buf.Width {
+				indStyle := NewStyle().Foreground(ColorBrightWhite).toTcell()
+				if offset > 0 && y < buf.Height {
+					buf.Cells[y][indCol] = Cell{Rune: '↑', Style: indStyle}
+				}
+				if offset+props.Height < ch && y+props.Height-1 < buf.Height {
+					buf.Cells[y+props.Height-1][indCol] = Cell{Rune: '↓', Style: indStyle}
+				}
+			}
+		}
+
+		return cw + indW, props.Height
 
 	case "shell":
 		if len(el.Children) < 2 {

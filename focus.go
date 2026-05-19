@@ -1,5 +1,7 @@
 package gink
 
+import "strings"
+
 // focusable pairs a component's tree path with its Y position in the virtual
 // render buffer, enabling focus-aware auto-scrolling.
 type focusable struct {
@@ -11,6 +13,11 @@ type focusable struct {
 // focusedIdx is the index of the currently focused component within that list.
 var focusables []focusable
 var focusedIdx int
+
+// prevFocusables is a snapshot of focusables from the previous render pass.
+// UseFocusWithin reads it so it can check descendant focus before children
+// have rendered in the current pass.
+var prevFocusables []focusable
 
 // activePath and activeY are set by the reconciler before calling each
 // component function so UseFocus can register the correct path and position.
@@ -52,6 +59,38 @@ func UseFocus() bool {
 	myIdx := len(focusables)
 	focusables = append(focusables, focusable{path: activePath, y: activeY})
 	return myIdx == focusedIdx
+}
+
+// UseFocusWithin returns true when the currently focused component is this
+// component or any of its descendants, without registering an extra Tab stop.
+//
+// It reads the focusable list from the previous render pass, so it is always
+// one frame behind on the very first render (invisible in practice). Use it to
+// style container elements — borders, panels — based on whether focus is inside:
+//
+//	isFocused := gink.UseFocusWithin()
+//	style := gink.NewStyle()
+//	if isFocused {
+//	    style = gink.NewStyle().Bold().Foreground(gink.ColorBrightCyan)
+//	}
+//	return gink.BorderWithTitle("Panel", child, style)
+func UseFocusWithin() bool {
+	if activeCtx == nil {
+		panic("gink: UseFocusWithin called outside of a component render — hooks must be called at the top level of a component function")
+	}
+	return isFocusedWithinPath(activePath)
+}
+
+// isFocusedWithinPath returns true if prevFocusables[focusedIdx] is at or
+// within the subtree rooted at path. Used by UseFocusWithin and the reconciler
+// cache-invalidation check.
+func isFocusedWithinPath(path string) bool {
+	if focusedIdx >= len(prevFocusables) {
+		return false
+	}
+	target := prevFocusables[focusedIdx].path
+	prefix := path + "/"
+	return target == path || strings.HasPrefix(target, prefix)
 }
 
 // focusChanged is set when Tab/Shift+Tab changes the focused component so

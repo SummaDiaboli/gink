@@ -90,6 +90,7 @@ func Clock() gink.Element {
 // UseTermSize (full terminal width), which would widen the border to fill the
 // screen and leave no room for the right panel.
 func ServerList() gink.Element {
+	focused := gink.UseFocusWithin()
 	sel := gink.UseContext(SelectedCtx)
 	filter, setFilter := gink.UseState("All")
 
@@ -138,12 +139,16 @@ func ServerList() gink.Element {
 		}, 8))
 	}
 
+	borderStyle := titleStyle
+	if focused {
+		borderStyle = gink.NewStyle().Bold().Foreground(gink.ColorBrightWhite)
+	}
 	return gink.BorderWithTitle("Servers",
 		gink.BoxWithGap(1,
 			gink.Row(gink.Text("Filter ", labelStyle), gink.C(gink.NewSelect(filterOpts, filter, setFilter))),
 			listElem,
 		),
-		titleStyle,
+		borderStyle,
 	)
 }
 
@@ -156,6 +161,7 @@ func ServerList() gink.Element {
 // Section headers use styled text rather than DividerWithLabel to avoid
 // expanding the panel to full terminal width.
 func MetricsPanel() gink.Element {
+	focused := gink.UseFocusWithin()
 	sel := gink.UseContext(SelectedCtx)
 	server := servers[sel]
 
@@ -178,20 +184,24 @@ func MetricsPanel() gink.Element {
 		}
 		entry := fmt.Sprintf("[%s] %s", time.Now().Format("15:04:05"), randomLog(server.Name))
 		next := append([]string{entry}, logs...)
-		if len(next) > 5 {
-			next = next[:5]
+		if len(next) > 30 {
+			next = next[:30]
 		}
 		setLogs(next)
 	})
 
 	panelTitle := fmt.Sprintf("Details · %s", server.Name)
+	borderStyle := titleStyle
+	if focused {
+		borderStyle = gink.NewStyle().Bold().Foreground(gink.ColorBrightWhite)
+	}
 
 	if loading {
 		return gink.BorderWithTitle(panelTitle,
 			gink.PaddingXY(1, 0,
 				gink.Row(gink.C(gink.Spinner), gink.Text("  Fetching metrics…", dimStyle)),
 			),
-			titleStyle,
+			borderStyle,
 		)
 	}
 
@@ -203,16 +213,17 @@ func MetricsPanel() gink.Element {
 		statusStyle = offlineStyle
 	}
 
-	var logSection gink.Element
+	var logContent gink.Element
 	if len(logs) == 0 {
-		logSection = gink.Text("  Waiting for events…", dimStyle)
+		logContent = gink.Text("  Waiting for events…", dimStyle)
 	} else {
 		rows := make([]gink.Element, len(logs))
 		for i, l := range logs {
 			rows[i] = gink.Text(l, logStyle)
 		}
-		logSection = gink.Box(rows...)
+		logContent = gink.Box(rows...)
 	}
+	logSection := gink.C(gink.NewScrollView(5, logContent))
 
 	const barWidth = 20
 
@@ -235,7 +246,7 @@ func MetricsPanel() gink.Element {
 			gink.Text("Events", sectionStyle),
 			logSection,
 		),
-		titleStyle,
+		borderStyle,
 	)
 }
 
@@ -303,7 +314,7 @@ func App() gink.Element {
 		),
 	)
 	footer := gink.PaddingXY(2, 0,
-		gink.Text("Tab: focus  ·  ↑↓: navigate  ·  ←→: filter  ·  PgUp/PgDn: scroll  ·  Esc: quit", hintStyle),
+		gink.Text("Tab: focus  ·  ↑↓: navigate / scroll log  ·  ←→: filter  ·  PgUp/PgDn: scroll  ·  Esc: quit", hintStyle),
 	)
 	return gink.AppShell(main, footer)
 }

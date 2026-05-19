@@ -1,0 +1,161 @@
+package gink
+
+import (
+	"strings"
+	"testing"
+)
+
+// ── NewList ───────────────────────────────────────────────────────────────────
+
+var listItems = []string{"Alpha", "Bravo", "Charlie", "Delta", "Echo"}
+
+// listHarness creates a Harness whose root component owns the selection via
+// UseState, so that calling setSel triggers a proper reconciler re-render.
+func listHarness(t *testing.T, initialSel, height int) (*Harness, *int, func(int)) {
+	t.Helper()
+	var lastSel int
+	var setSel func(int)
+
+	h := NewHarness(t, func() Element {
+		sel, setSelFn := UseState(initialSel)
+		lastSel = sel
+		setSel = setSelFn
+		return C(NewList(listItems, sel, func(i int) { setSelFn(i) }, height))
+	})
+	return h, &lastSel, setSel
+}
+
+func TestNewList_rendersVisibleItems(t *testing.T) {
+	h, _, _ := listHarness(t, 0, 3)
+	defer h.Close()
+
+	// With height=3 only the first three items should be visible.
+	if !h.Contains("Alpha") || !h.Contains("Bravo") || !h.Contains("Charlie") {
+		t.Errorf("expected first three items; lines: %v", h.Lines()[:3])
+	}
+	if h.Contains("Delta") || h.Contains("Echo") {
+		t.Error("items beyond viewport height must not be rendered")
+	}
+}
+
+func TestNewList_highlightsSelectedItem(t *testing.T) {
+	h, _, _ := listHarness(t, 1, 5)
+	defer h.Close()
+
+	// Selected item (Bravo, index 1) must have the cursor indicator.
+	found := false
+	for _, line := range h.Lines() {
+		runes := []rune(line)
+		if len(runes) > 0 && runes[0] == '▶' && strings.Contains(line, "Bravo") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("selected item should have cursor indicator; lines: %v", h.Lines()[:5])
+	}
+}
+
+func TestNewList_downAdvancesSelection(t *testing.T) {
+	h, lastSel, _ := listHarness(t, 0, 5)
+	defer h.Close()
+
+	h.SendKey(KeyDown)
+
+	if *lastSel != 1 {
+		t.Errorf("after Down: sel=%d, want 1", *lastSel)
+	}
+}
+
+func TestNewList_upDecrementsSelection(t *testing.T) {
+	h, lastSel, _ := listHarness(t, 2, 5)
+	defer h.Close()
+
+	h.SendKey(KeyUp)
+
+	if *lastSel != 1 {
+		t.Errorf("after Up: sel=%d, want 1", *lastSel)
+	}
+}
+
+func TestNewList_downNoOpAtLastItem(t *testing.T) {
+	h, lastSel, _ := listHarness(t, len(listItems)-1, 5)
+	defer h.Close()
+
+	h.SendKey(KeyDown)
+
+	if *lastSel != len(listItems)-1 {
+		t.Errorf("Down at last item should be no-op; sel=%d", *lastSel)
+	}
+}
+
+func TestNewList_upNoOpAtFirstItem(t *testing.T) {
+	h, lastSel, _ := listHarness(t, 0, 5)
+	defer h.Close()
+
+	h.SendKey(KeyUp)
+
+	if *lastSel != 0 {
+		t.Errorf("Up at first item should be no-op; sel=%d", *lastSel)
+	}
+}
+
+func TestNewList_scrollsDownWhenSelectionLeavesViewport(t *testing.T) {
+	// height=2: items 0 and 1 visible initially.
+	h, _, _ := listHarness(t, 0, 2)
+	defer h.Close()
+
+	h.SendKey(KeyDown) // sel=1
+	h.SendKey(KeyDown) // sel=2 — must scroll so Charlie is visible
+
+	if !h.Contains("Charlie") {
+		t.Errorf("viewport should scroll to keep selection visible; lines: %v", h.Lines()[:2])
+	}
+	if h.Contains("Alpha") {
+		t.Error("Alpha should have scrolled out of view")
+	}
+}
+
+func TestNewList_scrollsUpWhenSelectionLeavesViewport(t *testing.T) {
+	// Start at last item (Echo, index 4), height=2.
+	h, _, _ := listHarness(t, 4, 2)
+	defer h.Close()
+
+	h.SendKey(KeyUp) // sel=3
+	h.SendKey(KeyUp) // sel=2
+	h.SendKey(KeyUp) // sel=1
+	h.SendKey(KeyUp) // sel=0 — viewport should scroll up to show Alpha
+
+	if !h.Contains("Alpha") {
+		t.Errorf("viewport should scroll up to show selected item; lines: %v", h.Lines()[:2])
+	}
+}
+
+func TestNewList_ignoredWhenUnfocused(t *testing.T) {
+	var lastSel int
+	h := NewHarness(t, func() Element {
+		sel, setSel := UseState(0)
+		lastSel = sel
+		return Box(
+			C(NewButton("Other", func() {})), // takes focus
+			C(NewList(listItems, sel, func(i int) { setSel(i) }, 3)),
+		)
+	})
+	defer h.Close()
+
+	h.SendKey(KeyDown)
+
+	if lastSel != 0 {
+		t.Errorf("unfocused list should ignore keypresses; sel=%d", lastSel)
+	}
+}
+
+func TestNewList_showsFocusStyleOnSelectedItem(t *testing.T) {
+	h, _, _ := listHarness(t, 0, 3)
+	defer h.Close()
+
+	// First component is focused — selected item row should carry non-default style.
+	got := h.CellStyle(0, 0)
+	if got == (Style{}).toTcell() {
+		t.Error("focused selected item should have non-default style")
+	}
+}

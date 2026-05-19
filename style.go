@@ -43,6 +43,7 @@ type Style struct {
 	bold      bool
 	underline bool
 	italic    bool
+	reverse   bool
 }
 
 // NewStyle returns a Style with terminal default colors and no decoration.
@@ -69,6 +70,10 @@ func (s Style) Underline() Style { s.underline = true; return s }
 // Note: italic rendering depends on terminal support and may display as reverse video.
 func (s Style) Italic() Style { s.italic = true; return s }
 
+// Reverse returns a copy of the style with foreground and background colors
+// swapped. Commonly used to render a text cursor.
+func (s Style) Reverse() Style { s.reverse = true; return s }
+
 // toTcell converts the Gink style to a tcell.Style for use in the renderer.
 func (s Style) toTcell() tcell.Style {
 	ts := tcell.StyleDefault.Foreground(s.fg).Background(s.bg)
@@ -80,6 +85,9 @@ func (s Style) toTcell() tcell.Style {
 	}
 	if s.italic {
 		ts = ts.Italic(true)
+	}
+	if s.reverse {
+		ts = ts.Reverse(true)
 	}
 	return ts
 }

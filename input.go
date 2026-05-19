@@ -24,6 +24,8 @@ const (
 	KeyTab        = tcell.KeyTab        // Tab (consumed by focus system; not dispatched to UseInput)
 	KeyPgUp       = tcell.KeyPgUp       // Page Up (consumed by scroll system; not dispatched to UseInput)
 	KeyPgDn       = tcell.KeyPgDn       // Page Down (consumed by scroll system; not dispatched to UseInput)
+	KeyHome       = tcell.KeyHome       // Home — move to start of line
+	KeyEnd        = tcell.KeyEnd        // End  — move to end of line
 	KeyRune       = tcell.KeyRune       // any printable character — use ev.Rune to identify it
 )
 

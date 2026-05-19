@@ -18,3 +18,4 @@ go.work.sum
 
 # Vendor directory (if used)
 vendor/
+.aider*

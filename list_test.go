@@ -149,6 +149,20 @@ func TestNewList_ignoredWhenUnfocused(t *testing.T) {
 	}
 }
 
+func TestNewList_customFocusStyle(t *testing.T) {
+	custom := NewStyle().Bold().Foreground(ColorBrightGreen)
+	h := NewHarness(t, func() Element {
+		sel, setSel := UseState(0)
+		return C(NewList(listItems, sel, func(i int) { setSel(i) }, 5, custom))
+	})
+	defer h.Close()
+
+	got := h.CellStyle(0, 0)
+	if got != custom.toTcell() {
+		t.Errorf("custom focus style not applied: got %v, want %v", got, custom.toTcell())
+	}
+}
+
 func TestNewList_showsFocusStyleOnSelectedItem(t *testing.T) {
 	h, _, _ := listHarness(t, 0, 3)
 	defer h.Close()

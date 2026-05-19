@@ -253,10 +253,12 @@ var fleetCols = []gink.Column{
 	{Header: "Disk"},
 }
 
-// fleetTable builds a summary Table of all servers with their current metrics.
-// It is a plain function (not a component) because it uses no hooks — no C()
-// wrapper is needed when calling it from App.
-func fleetTable() gink.Element {
+// FleetTable renders a selectable summary of all servers with their current
+// metrics. It uses NewTable so rows are navigable with Up/Down when focused.
+// Tab cycles focus here as the third stop after the filter Select and List.
+func FleetTable() gink.Element {
+	sel, setSel := gink.UseState(0)
+
 	rows := make([][]string, len(servers))
 	for i, s := range servers {
 		m := simulateMetrics(s.Name)
@@ -269,9 +271,10 @@ func fleetTable() gink.Element {
 			fmt.Sprintf("%d%%", int(m.Disk*100)),
 		}
 	}
+
 	return gink.BoxWithGap(1,
 		gink.Text("Fleet Overview", sectionStyle),
-		gink.Table(fleetCols, rows, titleStyle),
+		gink.C(gink.NewTable(fleetCols, rows, sel, setSel, len(servers))),
 	)
 }
 
@@ -279,7 +282,7 @@ func fleetTable() gink.Element {
 
 // App is the root component. It composes the header, two-column layout, fleet
 // summary table, and footer hint bar. Tab cycles focus between the filter
-// Select and the List.
+// Select, the server List, and the fleet Table.
 func App() gink.Element {
 	return gink.PaddingXY(2, 1,
 		gink.BoxWithGap(1,
@@ -295,9 +298,9 @@ func App() gink.Element {
 				gink.C(MetricsPanel),
 			),
 			gink.C(gink.Divider),
-			fleetTable(),
+			gink.C(FleetTable),
 			gink.C(gink.Divider),
-			gink.Text("Tab: switch focus  ·  ↑↓: navigate  ·  Esc: quit", hintStyle),
+			gink.Text("Tab: switch focus  ·  ↑↓: navigate list/table  ·  ←→: filter  ·  Esc: quit", hintStyle),
 		),
 	)
 }

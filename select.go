@@ -21,7 +21,11 @@ package gink
 //	    gink.Row(gink.Text("Language: "), gink.C(gink.NewSelect(langs, lang, setLang))),
 //	    gink.Row(gink.Text("Theme:    "), gink.C(gink.NewSelect(themes, theme, setTheme))),
 //	)
-func NewSelect(options []string, value string, onChange func(string)) func() Element {
+func NewSelect(options []string, value string, onChange func(string), styles ...Style) func() Element {
+	focusStyle := NewStyle().Bold().Foreground(ColorBrightCyan)
+	if len(styles) > 0 {
+		focusStyle = styles[0]
+	}
 	return func() Element {
 		isFocused := UseFocus()
 
@@ -53,6 +57,6 @@ func NewSelect(options []string, value string, onChange func(string)) func() Ele
 		if !isFocused {
 			return Text("[ " + value + " ]")
 		}
-		return Text("[ ◀ "+value+" ▶ ]", NewStyle().Bold().Foreground(ColorBrightCyan))
+		return Text("[ ◀ "+value+" ▶ ]", focusStyle)
 	}
 }

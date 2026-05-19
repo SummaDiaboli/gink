@@ -1,8 +1,9 @@
-// Focus order: Filter Select (0) · Server List (1)
+// Focus order: Filter Select (0) · Server List (1) · Fleet Table (2)
 package main
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -184,6 +185,30 @@ func TestDashboard_fleetTableTruncatesRegion(t *testing.T) {
 	// Region "us-east-1" (9 chars) exceeds MaxWidth=8 → truncated to "us-east…".
 	if !h.Contains("us-east…") {
 		t.Error("fleet table should truncate 'us-east-1' to 'us-east…' (MaxWidth=8)")
+	}
+}
+
+func TestDashboard_fleetTableNavigationMovesSelection(t *testing.T) {
+	resetState()
+	h := newDashHarness(t)
+	defer h.Close()
+
+	// Tab twice to reach the fleet table (Select=0, List=1, FleetTable=2).
+	h.Tab()
+	h.Tab()
+
+	// web-01 is row 0; Down should move cursor to web-02.
+	h.SendKey(gink.KeyDown)
+
+	// The selected row carries a ▶ cursor on the same line as web-02.
+	found := false
+	for _, line := range h.Lines() {
+		if strings.Contains(line, "▶") && strings.Contains(line, "web-02") {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("after Down in fleet table, web-02 row should have cursor; lines: %v", h.Lines())
 	}
 }
 

@@ -139,6 +139,26 @@ func TestNewSelect_tabCyclesFocusToSelect(t *testing.T) {
 	}
 }
 
+func TestNewSelect_customFocusStyle(t *testing.T) {
+	custom := NewStyle().Bold().Foreground(ColorBrightGreen)
+	h, _ := func() (*Harness, *string) {
+		var lastVal string
+		h := NewHarness(t, func() Element {
+			val, setVal := UseState("Apple")
+			lastVal = val
+			return C(NewSelect(selectOpts, val, func(v string) { setVal(v) }, custom))
+		})
+		return h, &lastVal
+	}()
+	defer h.Close()
+
+	// Select is focused by default — check the cell style matches the custom style.
+	got := h.CellStyle(0, 0)
+	if got != custom.toTcell() {
+		t.Errorf("custom focus style not applied: got %v, want %v", got, custom.toTcell())
+	}
+}
+
 func TestNewSelect_unknownValueDefaultsToFirst(t *testing.T) {
 	// When value is not in options, Down should behave as if at index 0.
 	h, lastVal := selectHarness(t, "Unknown")

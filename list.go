@@ -25,7 +25,11 @@ package gink
 //	    gink.Text("  "),
 //	    gink.Text(items[sel]),
 //	)
-func NewList(items []string, selected int, onSelect func(int), height int) func() Element {
+func NewList(items []string, selected int, onSelect func(int), height int, styles ...Style) func() Element {
+	focusStyle := NewStyle().Bold().Foreground(ColorBrightCyan)
+	if len(styles) > 0 {
+		focusStyle = styles[0]
+	}
 	return func() Element {
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
@@ -74,7 +78,7 @@ func NewList(items []string, selected int, onSelect func(int), height int) func(
 			if actualIdx == selected {
 				cursor = "▶ "
 				if isFocused {
-					style = NewStyle().Bold().Foreground(ColorBrightCyan)
+					style = focusStyle
 				} else {
 					style = NewStyle().Bold()
 				}

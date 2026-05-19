@@ -11,8 +11,9 @@ type componentCache struct {
 	w, h              int
 	cells             [][]Cell         // [row][col], relative to the component's top-left corner
 	focusedIdx        int              // global focusedIdx at time of render
-	focusablePaths    []string         // focusables entries added by this subtree
+	focusablePaths    []focusable      // focusables entries added by this subtree
 	inputHandlerCache []func(KeyEvent) // inputHandlers entries added by this subtree
+	footerBuf         *Buffer          // non-nil when this subtree rendered a "shell" element
 }
 
 // Reconciler walks an Element tree and paints it into a Buffer.
@@ -22,6 +23,7 @@ type Reconciler struct {
 	renderer    *renderer
 	cellCache   map[string]componentCache
 	dirtySnap   map[string]bool // snapshot taken at the start of each Render pass
+	FooterBuf   *Buffer         // set when a "shell" element is rendered; nil otherwise
 }
 
 func NewReconciler(r *renderer) *Reconciler {
@@ -99,8 +101,14 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 					}
 				}
 			}
-			focusables = append(focusables, cache.focusablePaths...)
+			// Restore focusables with the current Y so auto-scroll stays accurate.
+			for _, f := range cache.focusablePaths {
+				focusables = append(focusables, focusable{path: f.path, y: y})
+			}
 			inputHandlers = append(inputHandlers, cache.inputHandlerCache...)
+			if cache.footerBuf != nil {
+				rec.FooterBuf = cache.footerBuf
+			}
 			return cache.w, cache.h
 		}
 
@@ -109,6 +117,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		focusablesBefore := len(focusables)
 		inputsBefore := len(inputHandlers)
 
+		activeY = y
 		activePath = path
 		activeCtx = rec.hooksFor(path)
 		child := fn()
@@ -120,9 +129,10 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		// Build cell cache relative to (x, y).
 		cache := componentCache{
 			w: w, h: h, focusedIdx: focusedIdx,
-			focusablePaths:    append([]string{}, focusables[focusablesBefore:]...),
+			focusablePaths:    append([]focusable{}, focusables[focusablesBefore:]...),
 			inputHandlerCache: append([]func(KeyEvent){}, inputHandlers[inputsBefore:]...),
 			cells:             make([][]Cell, h),
+			footerBuf:         rec.FooterBuf,
 		}
 		for row := 0; row < h; row++ {
 			cache.cells[row] = make([]Cell, w)
@@ -162,6 +172,68 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		}
 		cw, ch := rec.renderElement(el.Children[0], buf, x+props.Left, y+props.Top, path+"/0")
 		return cw + props.Left + props.Right, ch + props.Top + props.Bottom
+
+	case "shell":
+		if len(el.Children) < 2 {
+			return 0, 0
+		}
+		mw, mh := rec.renderElement(el.Children[0], buf, x, y, path+"/main")
+		// Render footer into a separate buffer so the runtime can pin it to
+		// the bottom of the screen outside the scrollable viewport.
+		footerBuf := NewBuffer(buf.Width, 32)
+		_, fh := rec.renderElement(el.Children[1], footerBuf, 0, 0, path+"/footer")
+		if fh > 0 {
+			trimmed := NewBuffer(buf.Width, fh)
+			for row := 0; row < fh; row++ {
+				copy(trimmed.Cells[row], footerBuf.Cells[row])
+			}
+			rec.FooterBuf = trimmed
+		}
+		return mw, mh
+
+	case "constrain":
+		props := el.Props.(ConstrainProps)
+		if len(el.Children) == 0 {
+			return 0, 0
+		}
+
+		// Render child into a temporary buffer to capture its natural size
+		// without writing directly into the main buffer.
+		subBuf := NewBuffer(buf.Width, buf.Height)
+		cw, ch := rec.renderElement(el.Children[0], subBuf, 0, 0, path+"/0")
+
+		// Compute constrained output dimensions.
+		w, h := cw, ch
+		if props.MinWidth > 0 && w < props.MinWidth {
+			w = props.MinWidth
+		}
+		if props.MaxWidth > 0 && w > props.MaxWidth {
+			w = props.MaxWidth
+		}
+		if props.MinHeight > 0 && h < props.MinHeight {
+			h = props.MinHeight
+		}
+		if props.MaxHeight > 0 && h > props.MaxHeight {
+			h = props.MaxHeight
+		}
+
+		// Copy from sub-buffer into main buffer, clipping to the constrained size.
+		copyW := cw
+		if props.MaxWidth > 0 && copyW > props.MaxWidth {
+			copyW = props.MaxWidth
+		}
+		copyH := ch
+		if props.MaxHeight > 0 && copyH > props.MaxHeight {
+			copyH = props.MaxHeight
+		}
+		for row := 0; row < copyH; row++ {
+			for col := 0; col < copyW; col++ {
+				if y+row < buf.Height && x+col < buf.Width {
+					buf.Cells[y+row][x+col] = subBuf.Cells[row][col]
+				}
+			}
+		}
+		return w, h
 
 	case "border":
 		props := el.Props.(BorderProps)

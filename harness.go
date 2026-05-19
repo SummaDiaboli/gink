@@ -66,6 +66,9 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	focusedIdx = 0
 	activeCtx = nil
 	activePath = ""
+	scrollOffset = 0
+	scrollContent = 0
+	footerHeight = 0
 
 	h := &Harness{
 		rec:    NewReconciler(r),
@@ -85,25 +88,79 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 // Render automatically, so you only need to call it explicitly when waiting
 // for async state updates — e.g. polling between [time.Sleep] calls in
 // timing-sensitive tests. For most cases prefer [ginktest.AwaitContains].
-func (h *Harness) Render() {
-	h.t.Helper()
+func (h *Harness) renderOnce() {
 	inputHandlers = inputHandlers[:0]
 	pendingEffects = pendingEffects[:0]
 	focusables = focusables[:0]
 	currentTermSize = TermSize{Width: h.Width, Height: h.Height}
-	h.buf = h.rec.Render(C(h.root), h.Width, h.Height)
+	h.rec.FooterBuf = nil
+	virtual := h.rec.Render(C(h.root), h.Width, virtualHeight(h.Height))
+	footer := h.rec.FooterBuf
+	fh := 0
+	if footer != nil {
+		fh = footer.Height
+	}
+	footerHeight = fh
+	avail := availableHeight()
+	scrollContent = detectContentHeight(virtual)
+	clampScroll()
+	main := applyScroll(virtual, h.Width, avail, scrollOffset)
+	addScrollIndicators(main, scrollOffset, scrollContent)
+	h.buf = NewBuffer(h.Width, h.Height)
+	for row := 0; row < avail && row < h.Height; row++ {
+		copy(h.buf.Cells[row], main.Cells[row])
+	}
+	if footer != nil {
+		for row := 0; row < fh && avail+row < h.Height; row++ {
+			copy(h.buf.Cells[avail+row], footer.Cells[row])
+		}
+	}
 	h.r.flush(h.buf)
 	runEffects()
+}
+
+func (h *Harness) Render() {
+	h.t.Helper()
+	h.renderOnce()
+	// Auto-scroll only when Tab/Shift+Tab changed the focused component.
+	if focusChanged && focusedIdx < len(focusables) {
+		f := focusables[focusedIdx]
+		fy := f.y
+		fh := 1
+		if cache, ok := h.rec.cellCache[f.path]; ok {
+			fh = cache.h
+		}
+		avail := availableHeight()
+		bottomY := fy + fh - 1
+		if avail > 0 && (fy < scrollOffset || bottomY >= scrollOffset+avail) {
+			if fy < scrollOffset || fh > avail {
+				scrollToY(fy)
+			} else {
+				scrollToY(bottomY)
+			}
+			h.renderOnce()
+		}
+	}
+	focusChanged = false
 	if len(focusables) > 0 && focusedIdx >= len(focusables) {
 		focusedIdx = len(focusables) - 1
 		// Focus was clamped — re-render once so components see the corrected index.
-		inputHandlers = inputHandlers[:0]
-		pendingEffects = pendingEffects[:0]
-		focusables = focusables[:0]
-		h.buf = h.rec.Render(C(h.root), h.Width, h.Height)
-		h.r.flush(h.buf)
-		runEffects()
+		h.renderOnce()
 	}
+}
+
+// PageDown scrolls the viewport down by one screen height and re-renders.
+func (h *Harness) PageDown() {
+	h.t.Helper()
+	scrollDown(h.Height)
+	h.Render()
+}
+
+// PageUp scrolls the viewport up by one screen height and re-renders.
+func (h *Harness) PageUp() {
+	h.t.Helper()
+	scrollUp(h.Height)
+	h.Render()
 }
 
 // Lines returns the buffer contents as a slice of strings, one per terminal

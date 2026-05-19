@@ -284,7 +284,7 @@ func FleetTable() gink.Element {
 // summary table, and footer hint bar. Tab cycles focus between the filter
 // Select, the server List, and the fleet Table.
 func App() gink.Element {
-	return gink.PaddingXY(2, 1,
+	main := gink.PaddingXY(2, 1,
 		gink.BoxWithGap(1,
 			gink.Row(
 				gink.Text("◆ Gink Dashboard", titleStyle),
@@ -300,9 +300,12 @@ func App() gink.Element {
 			gink.C(gink.Divider),
 			gink.C(FleetTable),
 			gink.C(gink.Divider),
-			gink.Text("Tab: switch focus  ·  ↑↓: navigate list/table  ·  ←→: filter  ·  Esc: quit", hintStyle),
 		),
 	)
+	footer := gink.PaddingXY(2, 0,
+		gink.Text("Tab: focus  ·  ↑↓: navigate  ·  ←→: filter  ·  PgUp/PgDn: scroll  ·  Esc: quit", hintStyle),
+	)
+	return gink.AppShell(main, footer)
 }
 
 func main() {

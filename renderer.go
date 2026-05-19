@@ -43,6 +43,7 @@ func newRenderer() (*renderer, error) {
 	if err := screen.Init(); err != nil {
 		return nil, err
 	}
+	screen.EnableMouse()
 	return &renderer{
 		screen: screen,
 		dirty:  make(chan struct{}, 1),

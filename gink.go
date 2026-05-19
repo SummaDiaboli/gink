@@ -19,15 +19,61 @@ func Render(root Component) error {
 
 	rec := NewReconciler(r)
 
-	render := func() {
+	doRender := func() {
 		inputHandlers = inputHandlers[:0]
 		pendingEffects = pendingEffects[:0]
 		focusables = focusables[:0]
 		w, h := r.screen.Size()
 		currentTermSize = TermSize{Width: w, Height: h}
-		buf := rec.Render(C(root), w, h)
-		r.flush(buf)
-		runEffects() // always after flush so effects see the committed UI
+		rec.FooterBuf = nil
+		virtual := rec.Render(C(root), w, virtualHeight(h))
+		footer := rec.FooterBuf
+		fh := 0
+		if footer != nil {
+			fh = footer.Height
+		}
+		footerHeight = fh
+		avail := availableHeight()
+		scrollContent = detectContentHeight(virtual)
+		clampScroll()
+		main := applyScroll(virtual, w, avail, scrollOffset)
+		addScrollIndicators(main, scrollOffset, scrollContent)
+		screen := NewBuffer(w, h)
+		for row := 0; row < avail && row < h; row++ {
+			copy(screen.Cells[row], main.Cells[row])
+		}
+		if footer != nil {
+			for row := 0; row < fh && avail+row < h; row++ {
+				copy(screen.Cells[avail+row], footer.Cells[row])
+			}
+		}
+		r.flush(screen)
+	}
+
+	render := func() {
+		doRender()
+		// Auto-scroll only when Tab/Shift+Tab changed the focused component —
+		// never override an explicit PageUp/PageDown or mouse wheel scroll.
+		if focusChanged && focusedIdx < len(focusables) {
+			f := focusables[focusedIdx]
+			fy := f.y
+			fh := 1
+			if cache, ok := rec.cellCache[f.path]; ok {
+				fh = cache.h
+			}
+			avail := availableHeight()
+			bottomY := fy + fh - 1
+			if avail > 0 && (fy < scrollOffset || bottomY >= scrollOffset+avail) {
+				if fy < scrollOffset || fh > avail {
+					scrollToY(fy)
+				} else {
+					scrollToY(bottomY)
+				}
+				doRender()
+			}
+		}
+		focusChanged = false
+		runEffects() // always after final flush so effects see the committed UI
 		// Clamp after render when the full focusables list is known.
 		// If clamping changed focusedIdx, schedule a re-render so components
 		// immediately reflect the corrected focus state.
@@ -65,10 +111,23 @@ func Render(root Component) error {
 			case *tcell.EventResize:
 				r.screen.Sync()
 				render()
+			case *tcell.EventMouse:
+				switch ev.Buttons() {
+				case tcell.WheelUp:
+					scrollUp(3)
+					render()
+				case tcell.WheelDown:
+					scrollDown(3)
+					render()
+				}
 			case *tcell.EventKey:
 				switch ev.Key() {
 			case tcell.KeyEscape, tcell.KeyCtrlC:
 				return nil
+			case tcell.KeyPgUp:
+				scrollUp(currentTermSize.Height)
+			case tcell.KeyPgDn:
+				scrollDown(currentTermSize.Height)
 			case tcell.KeyTab:
 				advanceFocus(1)
 			case tcell.KeyBacktab:

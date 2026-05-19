@@ -76,17 +76,17 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 
 		for i, row := range rows[offset:end] {
 			actualIdx := offset + i
-			cursor := "  "
 			style := NewStyle()
+			runes := []rune(tableFormatRow(row, widths))
 			if actualIdx == selected {
-				cursor = "▶ "
+				runes[0] = '▶'
 				if isFocused {
 					style = focusStyle
 				} else {
 					style = NewStyle().Bold()
 				}
 			}
-			lines = append(lines, Text(cursor+tableFormatRow(row, widths), style))
+			lines = append(lines, Text(string(runes), style))
 		}
 
 		lines = append(lines, Text(tableBorderBot(widths)))

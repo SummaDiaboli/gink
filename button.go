@@ -29,6 +29,10 @@ func NewButton(label string, onPress func()) func() Element {
 			}
 		})
 
+		UseClick(func(_, _ int) {
+			onPress()
+		})
+
 		style := NewStyle()
 		if isFocused {
 			style = NewStyle().Bold().Foreground(ColorBrightCyan)

@@ -54,6 +54,26 @@ func NewSelect(options []string, value string, onChange func(string), styles ...
 			}
 		})
 
+		// Divide the widget at its midpoint: left half = previous, right half = next.
+		// Width differs by focus state: focused adds "◀ " and " ▶" (4 extra chars).
+		UseClick(func(localX, _ int) {
+			var mid int
+			if isFocused {
+				mid = (len([]rune(value)) + 8) / 2
+			} else {
+				mid = (len([]rune(value)) + 4) / 2
+			}
+			if localX < mid {
+				if idx > 0 {
+					onChange(options[idx-1])
+				}
+			} else {
+				if idx < len(options)-1 {
+					onChange(options[idx+1])
+				}
+			}
+		})
+
 		if !isFocused {
 			return Text("[ " + value + " ]")
 		}

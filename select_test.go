@@ -159,6 +159,41 @@ func TestNewSelect_customFocusStyle(t *testing.T) {
 	}
 }
 
+func TestNewSelect_clickRightHalfAdvances(t *testing.T) {
+	h, lastVal := selectHarness(t, "Apple")
+	defer h.Close()
+
+	// Focused: "[ ◀ Apple ▶ ]" — 13 chars, midpoint 6. Click col 8 (right half).
+	h.Click(8, 0)
+
+	if *lastVal != "Banana" {
+		t.Errorf("click right half: got %q, want Banana", *lastVal)
+	}
+}
+
+func TestNewSelect_clickLeftHalfGoesBack(t *testing.T) {
+	h, lastVal := selectHarness(t, "Banana")
+	defer h.Close()
+
+	// Focused: "[ ◀ Banana ▶ ]" — 14 chars, midpoint 7. Click col 2 (left half).
+	h.Click(2, 0)
+
+	if *lastVal != "Apple" {
+		t.Errorf("click left half: got %q, want Apple", *lastVal)
+	}
+}
+
+func TestNewSelect_clickRightNoOpAtLastOption(t *testing.T) {
+	h, lastVal := selectHarness(t, "Cherry")
+	defer h.Close()
+
+	h.Click(12, 0) // right half — already at last option
+
+	if *lastVal != "Cherry" {
+		t.Errorf("click right at last option should be no-op; got %q", *lastVal)
+	}
+}
+
 func TestNewSelect_unknownValueDefaultsToFirst(t *testing.T) {
 	// When value is not in options, Down should behave as if at index 0.
 	h, lastVal := selectHarness(t, "Unknown")

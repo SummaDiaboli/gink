@@ -239,10 +239,47 @@ func MetricsPanel() gink.Element {
 	)
 }
 
+// ── Fleet Table ───────────────────────────────────────────────────────────────
+
+// fleetCols defines the Table columns with MinWidth and MaxWidth constraints.
+// MinWidth=12 on Server ensures short names ("web-01") are padded to a uniform
+// width. MaxWidth=8 on Region truncates "us-east-1" → "us-east…".
+var fleetCols = []gink.Column{
+	{Header: "Server", MinWidth: 12},
+	{Header: "Status"},
+	{Header: "Region", MaxWidth: 8},
+	{Header: "CPU"},
+	{Header: "Memory"},
+	{Header: "Disk"},
+}
+
+// fleetTable builds a summary Table of all servers with their current metrics.
+// It is a plain function (not a component) because it uses no hooks — no C()
+// wrapper is needed when calling it from App.
+func fleetTable() gink.Element {
+	rows := make([][]string, len(servers))
+	for i, s := range servers {
+		m := simulateMetrics(s.Name)
+		rows[i] = []string{
+			s.Name,
+			string(s.Status),
+			s.Region,
+			fmt.Sprintf("%d%%", int(m.CPU*100)),
+			fmt.Sprintf("%d%%", int(m.Memory*100)),
+			fmt.Sprintf("%d%%", int(m.Disk*100)),
+		}
+	}
+	return gink.BoxWithGap(1,
+		gink.Text("Fleet Overview", sectionStyle),
+		gink.Table(fleetCols, rows, titleStyle),
+	)
+}
+
 // ── App ───────────────────────────────────────────────────────────────────────
 
-// App is the root component. It composes the header, two-column layout, and
-// footer hint bar. Tab cycles focus between the filter Select and the List.
+// App is the root component. It composes the header, two-column layout, fleet
+// summary table, and footer hint bar. Tab cycles focus between the filter
+// Select and the List.
 func App() gink.Element {
 	return gink.PaddingXY(2, 1,
 		gink.BoxWithGap(1,
@@ -257,6 +294,8 @@ func App() gink.Element {
 				gink.Text("  "),
 				gink.C(MetricsPanel),
 			),
+			gink.C(gink.Divider),
+			fleetTable(),
 			gink.C(gink.Divider),
 			gink.Text("Tab: switch focus  ·  ↑↓: navigate  ·  Esc: quit", hintStyle),
 		),

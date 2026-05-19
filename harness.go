@@ -6,10 +6,11 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TestingT is the subset of *testing.T that Harness requires.
-// *testing.T satisfies this interface automatically — no import of the
-// testing package is needed in your test files beyond the standard
-// `import "testing"`.
+// TestingT is the subset of [*testing.T] that [Harness] requires.
+// [*testing.T] satisfies this interface automatically — no additional
+// import is needed beyond the standard `import "testing"`.
+// The interface exists so that the gink package itself does not import
+// the testing package, keeping it out of production binaries.
 type TestingT interface {
 	Helper()
 	Fatalf(format string, args ...any)
@@ -17,6 +18,12 @@ type TestingT interface {
 
 // Harness renders a component tree into a tcell SimulationScreen so tests
 // can inspect output and simulate input without a real terminal.
+// Construct one with [NewHarness] or [NewHarnessSize]; close it with [Harness.Close].
+//
+// In most cases, prefer the [github.com/salim/gink/ginktest] package, which
+// wraps Harness with assertion helpers ([ginktest.AssertContains] etc.).
+// Use Harness directly only when you need lower-level access such as
+// [Harness.Line], [Harness.CellStyle], or custom screen dimensions.
 type Harness struct {
 	rec    *Reconciler
 	screen tcell.SimulationScreen
@@ -28,15 +35,19 @@ type Harness struct {
 	t      TestingT
 }
 
-// NewHarness creates a Harness with an 80×24 simulation screen and renders the
-// root component once. Call Render() to re-render after simulating input or
-// state changes triggered by effects.
+// NewHarness creates a Harness with an 80×24 simulation screen and renders
+// root once. It is the standard entry point for component tests.
+//
+//	h := gink.NewHarness(t, MyComponent)
+//	defer h.Close()
 func NewHarness(t TestingT, root Component) *Harness {
 	t.Helper()
 	return NewHarnessSize(t, root, 80, 24)
 }
 
 // NewHarnessSize creates a Harness with custom terminal dimensions.
+// Use this when component layout depends on the terminal size
+// (e.g. components that call [UseTermSize]).
 func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	t.Helper()
 
@@ -69,8 +80,11 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	return h
 }
 
-// Render executes one full render pass: clears hook/effect/focus slices,
-// walks the element tree, flushes the buffer, and runs pending effects.
+// Render executes one full render pass and updates the internal buffer.
+// Input methods ([Tab], [Harness.SendRune], [Harness.Enter], etc.) call
+// Render automatically, so you only need to call it explicitly when waiting
+// for async state updates — e.g. polling between [time.Sleep] calls in
+// timing-sensitive tests. For most cases prefer [ginktest.AwaitContains].
 func (h *Harness) Render() {
 	h.t.Helper()
 	inputHandlers = inputHandlers[:0]
@@ -92,8 +106,8 @@ func (h *Harness) Render() {
 	}
 }
 
-// Lines returns the buffer contents as a slice of strings, one per row,
-// with trailing spaces trimmed.
+// Lines returns the buffer contents as a slice of strings, one per terminal
+// row, with trailing spaces trimmed. The slice length equals Harness.Height.
 func (h *Harness) Lines() []string {
 	rows := make([]string, h.buf.Height)
 	for y, row := range h.buf.Cells {
@@ -106,7 +120,8 @@ func (h *Harness) Lines() []string {
 	return rows
 }
 
-// Line returns the trimmed string content of row y.
+// Line returns the trimmed string content of row y (0-indexed from the top).
+// Returns an empty string if y is out of bounds.
 func (h *Harness) Line(y int) string {
 	lines := h.Lines()
 	if y < 0 || y >= len(lines) {
@@ -125,7 +140,10 @@ func (h *Harness) Contains(s string) bool {
 	return false
 }
 
-// CellStyle returns the tcell.Style of the cell at (x, y).
+// CellStyle returns the tcell.Style of the cell at column x, row y.
+// Returns tcell.StyleDefault if the coordinates are out of bounds.
+// Use this to assert on colors, bold, or underline when text content
+// alone is not sufficient to verify correct rendering.
 func (h *Harness) CellStyle(x, y int) tcell.Style {
 	if y < 0 || y >= h.buf.Height || x < 0 || x >= h.buf.Width {
 		return tcell.StyleDefault
@@ -134,6 +152,8 @@ func (h *Harness) CellStyle(x, y int) tcell.Style {
 }
 
 // SendRune simulates a printable character keypress and re-renders.
+// The event is dispatched to whichever component's [UseInput] handler
+// is active for the current focus state.
 func (h *Harness) SendRune(r rune) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
@@ -142,6 +162,10 @@ func (h *Harness) SendRune(r rune) {
 }
 
 // SendKey simulates a special key event and re-renders.
+// Use [Harness.Tab], [Harness.Enter], and [Harness.Backspace] for the most
+// common keys. Use SendKey directly for arrow keys and other special keys:
+//
+//	h.SendKey(gink.KeyDown)
 func (h *Harness) SendKey(key tcell.Key) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(key, 0, tcell.ModNone)
@@ -149,33 +173,37 @@ func (h *Harness) SendKey(key tcell.Key) {
 	h.Render()
 }
 
-// Tab advances focus to the next focusable component and re-renders.
+// Tab advances focus to the next [UseFocus] component in tree order and re-renders.
+// Focus wraps around from the last focusable back to the first.
 func (h *Harness) Tab() {
 	h.t.Helper()
 	advanceFocus(1)
 	h.Render()
 }
 
-// ShiftTab moves focus to the previous focusable component and re-renders.
+// ShiftTab moves focus to the previous [UseFocus] component in tree order and re-renders.
+// Focus wraps around from the first focusable back to the last.
 func (h *Harness) ShiftTab() {
 	h.t.Helper()
 	advanceFocus(-1)
 	h.Render()
 }
 
-// Enter simulates the Enter key and re-renders.
+// Enter simulates the Enter key and re-renders. Equivalent to [Harness.SendKey](gink.KeyEnter).
 func (h *Harness) Enter() {
 	h.t.Helper()
 	h.SendKey(tcell.KeyEnter)
 }
 
-// Backspace simulates the Backspace key and re-renders.
+// Backspace simulates a Backspace keypress and re-renders.
+// Sends the DEL keycode (0x7F) which most terminals use for Backspace.
 func (h *Harness) Backspace() {
 	h.t.Helper()
 	h.SendKey(tcell.KeyBackspace2)
 }
 
-// Close releases the simulation screen.
+// Close releases the simulation screen. Call it with defer immediately after
+// [NewHarness] to ensure the screen is freed even if the test panics.
 func (h *Harness) Close() {
 	h.screen.Fini()
 }

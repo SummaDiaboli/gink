@@ -33,6 +33,11 @@ Inspired by [Ink](https://github.com/vadimdemedes/ink) (React for CLI in JavaScr
   - [Spinner](#spinner)
   - [NewInput](#newinput)
   - [NewButton](#newbutton)
+- [Testing](#testing)
+  - [Writing tests](#writing-tests)
+  - [Harness methods](#harness-methods)
+  - [Assertions](#assertions)
+  - [Async components](#async-components)
 - [Architecture](#architecture)
 
 ---
@@ -656,6 +661,106 @@ gink.RowWithGap(2,
     gink.C(gink.NewButton("Cancel", func() { cancel() })),
 )
 ```
+
+---
+
+## Testing
+
+Gink ships a companion package, `github.com/salim/gink/ginktest`, that lets you test components without a real terminal. It follows the same pattern as [`net/http/httptest`](https://pkg.go.dev/net/http/httptest) — import it only in `_test.go` files.
+
+```bash
+go get github.com/salim/gink/ginktest
+```
+
+### Writing tests
+
+Create a `Harness`, simulate user input, and assert on the screen contents:
+
+```go
+package main
+
+import (
+    "testing"
+
+    "github.com/salim/gink/ginktest"
+)
+
+// Focus order: Input(0) · Increment(1) · Decrement(2)
+
+func TestCounter_increment(t *testing.T) {
+    h := ginktest.NewHarness(t, App)
+    defer h.Close()
+
+    h.Tab()   // → Increment button
+    h.Enter() // press it
+
+    ginktest.AssertContains(t, h, "Count is 1")
+}
+
+func TestCounter_typeInInput(t *testing.T) {
+    h := ginktest.NewHarness(t, App)
+    defer h.Close()
+
+    // Input has focus by default (focus index 0).
+    h.SendRune('A')
+    h.SendRune('l')
+    h.SendRune('i')
+
+    ginktest.AssertContains(t, h, "Ali")
+}
+```
+
+Document the focus order in a comment at the top of each test file. This makes the `Tab()` sequences readable without having to trace through the component tree.
+
+### Harness methods
+
+| Method | Description |
+|---|---|
+| `Tab()` | Advance focus to the next focusable component |
+| `ShiftTab()` | Move focus to the previous focusable component |
+| `Enter()` | Press Enter on the focused component |
+| `Backspace()` | Press Backspace |
+| `SendRune(r)` | Type a printable character |
+| `SendKey(key)` | Send a special key (arrow keys, Escape, etc.) |
+| `Render()` | Force a re-render without input (for async polling) |
+| `Contains(s)` | Returns true if any screen line contains s |
+| `Lines()` | Full screen as `[]string`, one entry per row |
+| `Line(y)` | Trimmed content of row y |
+| `CellStyle(x, y)` | Raw `tcell.Style` at a cell (for color/style assertions) |
+| `Close()` | Release the simulation screen |
+
+Arrow keys and other special keys use the `gink.Key*` constants:
+
+```go
+h.SendKey(gink.KeyDown)
+h.SendKey(gink.KeyUp)
+h.SendKey(gink.KeyEscape)
+```
+
+### Assertions
+
+```go
+ginktest.AssertContains(t, h, "text")     // fails if text is absent
+ginktest.AssertNotContains(t, h, "text")  // fails if text is present
+```
+
+Both print the full screen contents on failure so you can see exactly what was rendered.
+
+### Async components
+
+Components that use `UseInterval` or launch goroutines inside `UseEffect` update state asynchronously. Use `AwaitContains` to poll until the expected text appears:
+
+```go
+func TestClock_ticks(t *testing.T) {
+    h := ginktest.NewHarness(t, Clock)
+    defer h.Close()
+
+    // Wait up to 500ms for the timer to fire at least once.
+    ginktest.AwaitContains(t, h, "00:01", 500*time.Millisecond)
+}
+```
+
+`AwaitContains` re-renders every 50 ms and fails the test if the timeout elapses before the text appears.
 
 ---
 

@@ -1,6 +1,8 @@
 // Package ginktest provides testing utilities for Gink components.
-// It follows the same pattern as net/http/httptest — import it only in
+// It follows the same pattern as [net/http/httptest] — import it only in
 // _test.go files.
+//
+// # Quick start
 //
 //	import "github.com/salim/gink/ginktest"
 //
@@ -8,10 +10,37 @@
 //	    h := ginktest.NewHarness(t, MyComponent)
 //	    defer h.Close()
 //
-//	    h.Tab()
-//	    h.Enter()
+//	    h.Tab()          // move focus to next component
+//	    h.Enter()        // press Enter on the focused component
+//	    h.SendRune('x')  // type a character
+//
 //	    ginktest.AssertContains(t, h, "expected text")
+//	    ginktest.AssertNotContains(t, h, "unexpected text")
 //	}
+//
+// # How it works
+//
+// [NewHarness] creates an 80×24 virtual terminal backed by a tcell
+// SimulationScreen. No real terminal is needed — tests run headlessly in CI.
+// Each call to an input method ([Harness.Tab], [Harness.Enter], [Harness.SendRune],
+// etc.) dispatches the event and immediately re-renders the component tree, so
+// assertions can be made synchronously right after each interaction.
+//
+// # Async components
+//
+// Components that use [gink.UseInterval] or [gink.UseEffect] with goroutines
+// update state asynchronously. Use [AwaitContains] instead of [AssertContains]
+// to poll until the expected text appears or a timeout elapses:
+//
+//	ginktest.AwaitContains(t, h, "Running", 500*time.Millisecond)
+//
+// # Focus order
+//
+// Tab cycles focus through [gink.UseFocus] components in tree order, starting
+// from the first focusable component. Document the focus order in a comment at
+// the top of each test file so readers can follow the Tab/ShiftTab sequences:
+//
+//	// Focus order: Name(0) · Email(1) · Subject(2) · Submit(3)
 package ginktest
 
 import (
@@ -23,19 +52,23 @@ import (
 )
 
 // NewHarness creates a test harness with an 80×24 simulation screen and
-// renders root once. Use Render() to re-render after state changes or input.
+// renders root once. Use [gink.Harness.Render] to re-render after state
+// changes or input.
 func NewHarness(t *testing.T, root gink.Component) *gink.Harness {
 	t.Helper()
 	return gink.NewHarness(t, root)
 }
 
 // NewHarnessSize creates a test harness with custom terminal dimensions.
+// Use this when the component's layout depends on the terminal size
+// (e.g. components that use [gink.UseTermSize]).
 func NewHarnessSize(t *testing.T, root gink.Component, width, height int) *gink.Harness {
 	t.Helper()
 	return gink.NewHarnessSize(t, root, width, height)
 }
 
-// AssertContains fails the test if the screen does not contain s.
+// AssertContains fails the test if the rendered screen does not contain s.
+// The full screen contents are printed on failure.
 func AssertContains(t *testing.T, h *gink.Harness, s string) {
 	t.Helper()
 	if !h.Contains(s) {
@@ -43,7 +76,8 @@ func AssertContains(t *testing.T, h *gink.Harness, s string) {
 	}
 }
 
-// AssertNotContains fails the test if the screen contains s.
+// AssertNotContains fails the test if the rendered screen contains s.
+// The full screen contents are printed on failure.
 func AssertNotContains(t *testing.T, h *gink.Harness, s string) {
 	t.Helper()
 	if h.Contains(s) {
@@ -52,7 +86,10 @@ func AssertNotContains(t *testing.T, h *gink.Harness, s string) {
 }
 
 // AwaitContains re-renders every 50 ms until the screen contains s or timeout
-// elapses. Useful for asserting on UseInterval or async UseEffect output.
+// elapses. Use this for components that update asynchronously via
+// [gink.UseInterval] or [gink.UseEffect] goroutines.
+//
+//	ginktest.AwaitContains(t, h, "Running", 500*time.Millisecond)
 func AwaitContains(t *testing.T, h *gink.Harness, s string, timeout time.Duration) {
 	t.Helper()
 	deadline := time.Now().Add(timeout)
@@ -68,7 +105,6 @@ func AwaitContains(t *testing.T, h *gink.Harness, s string, timeout time.Duratio
 
 func dump(h *gink.Harness) string {
 	lines := h.Lines()
-	// Trim trailing blank lines for readability.
 	for len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
 	}

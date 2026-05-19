@@ -162,6 +162,43 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		}
 		cw, ch := rec.renderElement(el.Children[0], buf, x+props.Left, y+props.Top, path+"/0")
 		return cw + props.Left + props.Right, ch + props.Top + props.Bottom
+
+	case "border":
+		props := el.Props.(BorderProps)
+		if len(el.Children) == 0 {
+			return 0, 0
+		}
+		style := props.Style.toTcell()
+
+		// Render the child inset by one cell on each side.
+		childW, childH := rec.renderElement(el.Children[0], buf, x+1, y+1, path+"/0")
+
+		// Draw top border.
+		for i, r := range []rune(buildTopBorder(props.Title, childW)) {
+			if x+i < buf.Width && y < buf.Height {
+				buf.Cells[y][x+i] = Cell{Rune: r, Style: style}
+			}
+		}
+
+		// Draw left and right vertical edges.
+		for row := 0; row < childH; row++ {
+			if x < buf.Width && y+1+row < buf.Height {
+				buf.Cells[y+1+row][x] = Cell{Rune: '│', Style: style}
+			}
+			if x+childW+1 < buf.Width && y+1+row < buf.Height {
+				buf.Cells[y+1+row][x+childW+1] = Cell{Rune: '│', Style: style}
+			}
+		}
+
+		// Draw bottom border.
+		bottom := "└" + strings.Repeat("─", childW) + "┘"
+		for i, r := range []rune(bottom) {
+			if x+i < buf.Width && y+childH+1 < buf.Height {
+				buf.Cells[y+childH+1][x+i] = Cell{Rune: r, Style: style}
+			}
+		}
+
+		return childW + 2, childH + 2
 	}
 
 	return 0, 0

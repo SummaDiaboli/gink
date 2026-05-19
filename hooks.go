@@ -46,7 +46,12 @@ func UseState[T any](initial T) (T, func(T)) {
 		ctx.slots = append(ctx.slots, hookSlot{value: initial})
 	}
 
-	val := ctx.slots[idx].value.(T)
+	// Use comma-ok so nil interface values (e.g. UseState[error](nil)) don't panic.
+	val, ok := ctx.slots[idx].value.(T)
+	if !ok {
+		var zero T
+		val = zero
+	}
 
 	setter := func(next T) {
 		ctx.slots[idx].value = next

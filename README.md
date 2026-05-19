@@ -20,6 +20,8 @@ Inspired by [Ink](https://github.com/vadimdemedes/ink) (React for CLI in JavaScr
   - [Box](#box)
   - [Row](#row)
   - [Gaps](#gaps)
+  - [Padding](#padding)
+  - [Divider](#divider)
 - [Styling](#styling)
 - [Hooks](#hooks)
   - [UseState](#usestate)
@@ -38,6 +40,10 @@ Inspired by [Ink](https://github.com/vadimdemedes/ink) (React for CLI in JavaScr
   - [Harness methods](#harness-methods)
   - [Assertions](#assertions)
   - [Async components](#async-components)
+- [Plugins](#plugins)
+  - [Writing a plugin](#writing-a-plugin)
+  - [Plugin protocol](#plugin-protocol)
+  - [Pushing updates](#pushing-updates)
 - [Architecture](#architecture)
 
 ---
@@ -252,6 +258,60 @@ gink.RowWithGap(3,
     gink.Text("Gamma"),
 )
 ```
+
+### Padding
+
+`Padding` adds inner spacing around any element. The child is offset by the given amounts; the total element size grows to include the padding on each side.
+
+```go
+// Pad struct — set any combination of sides
+gink.Padding(gink.Pad{Top: 1, Left: 2}, content)
+
+// Equal spacing on all four sides
+gink.PaddingAll(1, content)
+
+// Horizontal (left/right) and vertical (top/bottom)
+gink.PaddingXY(2, 1, content)
+```
+
+Wrap an entire app in `PaddingXY` to add breathing room without changing any individual component:
+
+```go
+func App() gink.Element {
+    return gink.PaddingXY(2, 1,
+        gink.Box(
+            gink.Text("My App"),
+            // ...
+        ),
+    )
+}
+```
+
+### Divider
+
+`Divider` renders a full-width horizontal rule (`─`) that automatically spans the current terminal width.
+
+```go
+// Plain rule
+gink.C(gink.Divider)
+
+// Rule with a centered label inset
+gink.C(gink.DividerWithLabel("Section"))
+
+// Rule with a style (color, bold, etc.)
+gink.C(gink.DividerStyled(gink.NewStyle().Foreground(gink.ColorBrightBlack)))
+
+// Label with a style
+gink.C(gink.DividerWithLabel("Section", gink.NewStyle().Bold()))
+```
+
+`DividerWithLabel` centers the label and fills both sides with dashes:
+
+```
+───────────── Section ─────────────
+```
+
+If the terminal is too narrow to fit the label with dashes on both sides, the label is shown without dashes.
 
 ---
 
@@ -761,6 +821,139 @@ func TestClock_ticks(t *testing.T) {
 ```
 
 `AwaitContains` re-renders every 50 ms and fails the test if the timeout elapses before the text appears.
+
+---
+
+## Plugins
+
+Gink can embed UI written in other languages via subprocess plugins. A plugin is any executable that speaks newline-delimited JSON (NDJSON) on stdin/stdout. Client SDKs for Node.js and Python are provided in `sdk/`.
+
+```go
+// Wire up a plugin — it becomes a normal Gink component in the tree.
+gink.C(gink.NewPlugin("node", "my-plugin.js"))
+gink.C(gink.NewPlugin("python", "my-plugin.py"))
+
+// Pre-configure the process (env vars, working directory, etc.)
+cmd := exec.Command("node", "plugin.js")
+cmd.Dir = "/path/to/plugin"
+cmd.Env = append(os.Environ(), "API_KEY=secret")
+gink.C(gink.NewPluginCmd(cmd))
+```
+
+While the plugin is starting up, a spinner is displayed. If the process fails to start, an error message is shown in place of the spinner.
+
+### Writing a plugin
+
+**Node.js**
+
+```js
+const gink = require('./sdk/js/gink');
+
+let count = 0;
+
+gink.onMessage((msg) => {
+  if (msg.type === 'render' || (msg.type === 'input' && msg.key === 'enter')) {
+    if (msg.type === 'input') count++;
+    gink.element(
+      gink.boxGap(1,
+        gink.text('JS Counter', { bold: true, fg: 'brightCyan' }),
+        gink.text(`Count: ${count}`, { fg: 'brightYellow' }),
+        gink.text('Press Enter to increment'),
+      )
+    );
+  }
+  if (msg.type === 'unmount') process.exit(0);
+});
+```
+
+**Python**
+
+```python
+import gink
+
+count = 0
+
+def handle(msg):
+    global count
+    if msg['type'] == 'render':
+        show()
+    elif msg['type'] == 'input' and msg.get('key') == 'enter':
+        count += 1
+        show()
+    elif msg['type'] == 'unmount':
+        import sys; sys.exit(0)
+
+def show():
+    gink.element(gink.box(
+        gink.text(f'Count: {count}', bold=True, fg='brightYellow'),
+        gink.text('Press Enter to increment'),
+        gap=1,
+    ))
+
+gink.on_message(handle)
+gink.run()
+```
+
+### Plugin protocol
+
+All messages are single JSON objects terminated by `\n`.
+
+**Host → Plugin**
+
+| `type`    | Fields                               | Description |
+|-----------|--------------------------------------|-------------|
+| `render`  | —                                    | Sent once on mount. Plugin should respond with an element. |
+| `input`   | `key`, `rune` (when `key` = `rune`)  | A key event forwarded from the terminal (only when the plugin holds focus). |
+| `unmount` | —                                    | Plugin should clean up and exit. |
+
+Input key names: `enter`, `backspace`, `escape`, `up`, `down`, `left`, `right`, `rune` (read the `rune` field for the character).
+
+**Plugin → Host**
+
+| `type`    | Fields | Description |
+|-----------|--------|-------------|
+| `element` | `tree` | A new element tree to display. Can be sent at any time. |
+
+**Element JSON**
+
+```json
+{ "type": "text", "content": "Hello", "style": { "bold": true, "fg": "brightCyan" } }
+
+{ "type": "box", "gap": 1, "children": [ ... ] }
+
+{ "type": "row", "gap": 0, "children": [ ... ] }
+```
+
+Style color names: `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, and the `bright` variants (`brightRed`, `brightCyan`, etc.).
+
+### Pushing updates
+
+Plugins can send `element` messages at any time — not just in response to `render` or `input`. Use this for timers or async work:
+
+```python
+import gink, threading, time
+
+elapsed = 0.0
+
+def tick():
+    global elapsed
+    while True:
+        time.sleep(0.1)
+        elapsed += 0.1
+        gink.element(gink.text(f'Elapsed: {elapsed:.1f}s'))
+
+def handle(msg):
+    if msg['type'] == 'render':
+        threading.Thread(target=tick, daemon=True).start()
+        gink.element(gink.text('Starting...'))
+    elif msg['type'] == 'unmount':
+        import sys; sys.exit(0)
+
+gink.on_message(handle)
+gink.run()
+```
+
+See `sdk/README.md` for the full protocol specification.
 
 ---
 

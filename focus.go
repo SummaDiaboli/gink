@@ -2,11 +2,15 @@ package gink
 
 import "strings"
 
-// focusable pairs a component's tree path with its Y position in the virtual
-// render buffer, enabling focus-aware auto-scrolling.
+// focusable pairs a component's tree path with its position and dimensions in
+// the virtual render buffer, enabling focus-aware auto-scrolling and mouse
+// click hit-testing.
 type focusable struct {
 	path string
 	y    int
+	x    int
+	w    int // component width; 0 means not yet backfilled
+	h    int // component height; 0 means not yet backfilled
 }
 
 // focusables is rebuilt on every render pass, in tree order.
@@ -19,10 +23,17 @@ var focusedIdx int
 // have rendered in the current pass.
 var prevFocusables []focusable
 
-// activePath and activeY are set by the reconciler before calling each
-// component function so UseFocus can register the correct path and position.
+// activePath, activeY, and activeX are set by the reconciler before calling
+// each component function so UseFocus can register the correct path and position.
 var activePath string
 var activeY int
+var activeX int
+
+// renderOffsetX and renderOffsetY accumulate the translation from sub-buffer
+// rendering (Constrain, Width, Height, Size). When a container renders its
+// child into a temporary buffer at (0,0), it pushes (x,y) onto the offsets so
+// UseFocus still records the correct absolute screen position.
+var renderOffsetX, renderOffsetY int
 
 // UseFocus registers the current component as a focusable element and returns
 // whether it currently holds focus.
@@ -57,7 +68,11 @@ func UseFocus() bool {
 		panic("gink: UseFocus called outside of a component render — hooks must be called at the top level of a component function")
 	}
 	myIdx := len(focusables)
-	focusables = append(focusables, focusable{path: activePath, y: activeY})
+	focusables = append(focusables, focusable{
+		path: activePath,
+		y:    activeY + renderOffsetY,
+		x:    activeX + renderOffsetX,
+	})
 	return myIdx == focusedIdx
 }
 

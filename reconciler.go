@@ -105,9 +105,16 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 					}
 				}
 			}
-			// Restore focusables with the current Y so auto-scroll stays accurate.
+			// Restore focusables using relative offsets from cache so nested
+			// components land at the correct absolute position.
 			for _, f := range cache.focusablePaths {
-				focusables = append(focusables, focusable{path: f.path, y: y})
+				focusables = append(focusables, focusable{
+					path: f.path,
+					y:    y + f.y,
+					x:    x + f.x,
+					w:    f.w,
+					h:    f.h,
+				})
 			}
 			inputHandlers = append(inputHandlers, cache.inputHandlerCache...)
 			if cache.footerBuf != nil {
@@ -122,6 +129,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		inputsBefore := len(inputHandlers)
 
 		activeY = y
+		activeX = x
 		activePath = path
 		activeCtx = rec.hooksFor(path)
 		child := fn()
@@ -130,11 +138,32 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 
 		w, h := rec.renderElement(child, buf, x, y, path+"/0")
 
-		// Build cell cache relative to (x, y).
+		// Backfill component dimensions into its own focusable entry so the
+		// hit-tester has accurate bounds for mouse click dispatch.
+		for i := focusablesBefore; i < len(focusables); i++ {
+			if focusables[i].path == path {
+				focusables[i].w = w
+				focusables[i].h = h
+				break
+			}
+		}
+
+		// Build cell cache. Store focusable positions relative to (x, y) so
+		// they can be restored correctly even if the component moves later.
+		relFocusables := make([]focusable, len(focusables)-focusablesBefore)
+		for i, f := range focusables[focusablesBefore:] {
+			relFocusables[i] = focusable{
+				path: f.path,
+				y:    f.y - y,
+				x:    f.x - x,
+				w:    f.w,
+				h:    f.h,
+			}
+		}
 		cache := componentCache{
 			w: w, h: h, focusedIdx: focusedIdx,
 			wasFocusedWithin:  isFocusedWithinPath(path),
-			focusablePaths:    append([]focusable{}, focusables[focusablesBefore:]...),
+			focusablePaths:    relFocusables,
 			inputHandlerCache: append([]func(KeyEvent){}, inputHandlers[inputsBefore:]...),
 			cells:             make([][]Cell, h),
 			footerBuf:         rec.FooterBuf,
@@ -263,8 +292,14 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 
 		// Render child into a temporary buffer to capture its natural size
 		// without writing directly into the main buffer.
+		// Push the real screen offset so that any UseFocus calls inside the
+		// child record the correct absolute position for hit-testing.
 		subBuf := NewBuffer(buf.Width, buf.Height)
+		renderOffsetX += x
+		renderOffsetY += y
 		cw, ch := rec.renderElement(el.Children[0], subBuf, 0, 0, path+"/0")
+		renderOffsetX -= x
+		renderOffsetY -= y
 
 		// Compute constrained output dimensions.
 		w, h := cw, ch

@@ -22,8 +22,11 @@ func Render(root Component) error {
 	doRender := func() {
 		prevFocusables = append(prevFocusables[:0], focusables...)
 		inputHandlers = inputHandlers[:0]
+		clickHandlers = clickHandlers[:0]
 		pendingEffects = pendingEffects[:0]
 		focusables = focusables[:0]
+		renderOffsetX = 0
+		renderOffsetY = 0
 		w, h := r.screen.Size()
 		currentTermSize = TermSize{Width: w, Height: h}
 		rec.FooterBuf = nil
@@ -119,6 +122,10 @@ func Render(root Component) error {
 					render()
 				case tcell.WheelDown:
 					scrollDown(3)
+					render()
+				case tcell.Button1:
+					mx, my := ev.Position()
+					dispatchClick(mx, my)
 					render()
 				}
 			case *tcell.EventKey:

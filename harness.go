@@ -93,8 +93,11 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 func (h *Harness) renderOnce() {
 	prevFocusables = append(prevFocusables[:0], focusables...)
 	inputHandlers = inputHandlers[:0]
+	clickHandlers = clickHandlers[:0]
 	pendingEffects = pendingEffects[:0]
 	focusables = focusables[:0]
+	renderOffsetX = 0
+	renderOffsetY = 0
 	currentTermSize = TermSize{Width: h.Width, Height: h.Height}
 	h.rec.FooterBuf = nil
 	virtual := h.rec.Render(C(h.root), h.Width, virtualHeight(h.Height))
@@ -260,6 +263,15 @@ func (h *Harness) Enter() {
 func (h *Harness) Backspace() {
 	h.t.Helper()
 	h.SendKey(tcell.KeyBackspace2)
+}
+
+// Click simulates a mouse left-click at screen position (x, y) and re-renders.
+// It transfers focus to the focusable component at that position (if any) and
+// fires any [UseClick] handler registered by that component.
+func (h *Harness) Click(x, y int) {
+	h.t.Helper()
+	dispatchClick(x, y)
+	h.Render()
 }
 
 // Close releases the simulation screen. Call it with defer immediately after

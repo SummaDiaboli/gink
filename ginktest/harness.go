@@ -103,6 +103,24 @@ func AwaitContains(t *testing.T, h *gink.Harness, s string, timeout time.Duratio
 	t.Errorf("timed out after %s waiting for screen to contain %q\nscreen:\n%s", timeout, s, dump(h))
 }
 
+// AwaitNotContains re-renders every 50 ms until the screen no longer contains
+// s or timeout elapses. Use this to wait for async content to disappear, such
+// as a loading indicator being replaced by real data.
+//
+//	ginktest.AwaitNotContains(t, h, "Loading…", 2*time.Second)
+func AwaitNotContains(t *testing.T, h *gink.Harness, s string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		h.Render()
+		if !h.Contains(s) {
+			return
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Errorf("timed out after %s waiting for screen to stop containing %q\nscreen:\n%s", timeout, s, dump(h))
+}
+
 func dump(h *gink.Harness) string {
 	lines := h.Lines()
 	for len(lines) > 0 && lines[len(lines)-1] == "" {

@@ -123,10 +123,11 @@ func TestDashboard_liveLogAppearsAfterMetricsLoad(t *testing.T) {
 	h := newDashHarness(t)
 	defer h.Close()
 
-	// Wait for metrics to load first, then wait for at least one log entry.
+	// Wait for metrics to load, then wait for "Waiting for events…" to be
+	// replaced by a live log entry. Matching on the timestamp would be flaky
+	// across minute boundaries, so we check the placeholder disappears instead.
 	ginktest.AwaitContains(t, h, "CPU", 2*time.Second)
-	// Log entries use format [HH:MM:SS]; match current hour so it works at any time of day.
-	ginktest.AwaitContains(t, h, "["+time.Now().Format("15:04"), 5*time.Second)
+	ginktest.AwaitNotContains(t, h, "Waiting for events…", 5*time.Second)
 }
 
 func TestDashboard_clockUpdatesOverTime(t *testing.T) {

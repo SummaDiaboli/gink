@@ -42,3 +42,20 @@ func MinHeight(n int, child Element) Element { return Constrain(child, 0, 0, n, 
 //
 //	gink.MaxHeight(5, scrollableContent)
 func MaxHeight(n int, child Element) Element { return Constrain(child, 0, 0, 0, n) }
+
+// Width forces child to report exactly n columns wide to its parent,
+// expanding narrow content with blank space and clipping wide content.
+//
+//	gink.Row(gink.Width(20, label), value)
+func Width(n int, child Element) Element { return Constrain(child, n, n, 0, 0) }
+
+// Height forces child to report exactly n rows tall to its parent,
+// expanding short content with blank rows and clipping tall content.
+//
+//	gink.Box(gink.Height(3, header), body)
+func Height(n int, child Element) Element { return Constrain(child, 0, 0, n, n) }
+
+// Size forces child to report exactly w columns wide and h rows tall.
+//
+//	gink.Size(20, 5, panel)
+func Size(w, h int, child Element) Element { return Constrain(child, w, w, h, h) }

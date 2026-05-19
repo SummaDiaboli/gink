@@ -39,11 +39,11 @@ func NewSelect(options []string, value string, onChange func(string)) func() Ele
 				return
 			}
 			switch ev.Key {
-			case KeyUp:
+			case KeyLeft:
 				if idx > 0 {
 					onChange(options[idx-1])
 				}
-			case KeyDown:
+			case KeyRight:
 				if idx < len(options)-1 {
 					onChange(options[idx+1])
 				}

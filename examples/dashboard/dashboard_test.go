@@ -88,8 +88,8 @@ func TestDashboard_filterHidesServers(t *testing.T) {
 	h := newDashHarness(t)
 	defer h.Close()
 
-	// Select is focused by default. Press Down to change filter to "Online".
-	h.SendKey(gink.KeyDown)
+	// Select is focused by default. Press Right to change filter to "Online".
+	h.SendKey(gink.KeyRight)
 
 	// "○ cache-01" is the list-entry format for an offline server.
 	// "cache-01" alone would also match the fleet table, which always shows all servers.
@@ -104,8 +104,8 @@ func TestDashboard_filterShowsWarningServersOnly(t *testing.T) {
 	defer h.Close()
 
 	// Cycle filter: All → Online → Warning
-	h.SendKey(gink.KeyDown) // Online
-	h.SendKey(gink.KeyDown) // Warning
+	h.SendKey(gink.KeyRight) // Online
+	h.SendKey(gink.KeyRight) // Warning
 
 	if !h.Contains("◐ web-03") {
 		t.Error("web-03 (WARN) should appear in the list with Warning filter")
@@ -164,7 +164,7 @@ func TestDashboard_fleetTableShowsAllServersRegardlessOfFilter(t *testing.T) {
 	defer h.Close()
 
 	// Switch filter to Online — cache-01 disappears from the list.
-	h.SendKey(gink.KeyDown)
+	h.SendKey(gink.KeyRight)
 
 	// cache-01 is absent from the list (○ cache-01) but must still appear in
 	// the fleet table, which is not filtered.

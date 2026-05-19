@@ -53,47 +53,47 @@ func TestNewSelect_noArrowsWhenUnfocused(t *testing.T) {
 	}
 }
 
-func TestNewSelect_downMovesToNextOption(t *testing.T) {
+func TestNewSelect_rightMovesToNextOption(t *testing.T) {
 	h, lastVal := selectHarness(t, "Apple")
 	defer h.Close()
 
-	h.SendKey(KeyDown)
+	h.SendKey(KeyRight)
 
 	if *lastVal != "Banana" {
-		t.Errorf("after Down: got %q, want Banana", *lastVal)
+		t.Errorf("after Right: got %q, want Banana", *lastVal)
 	}
 }
 
-func TestNewSelect_upMovesToPreviousOption(t *testing.T) {
+func TestNewSelect_leftMovesToPreviousOption(t *testing.T) {
 	h, lastVal := selectHarness(t, "Banana")
 	defer h.Close()
 
-	h.SendKey(KeyUp)
+	h.SendKey(KeyLeft)
 
 	if *lastVal != "Apple" {
-		t.Errorf("after Up: got %q, want Apple", *lastVal)
+		t.Errorf("after Left: got %q, want Apple", *lastVal)
 	}
 }
 
-func TestNewSelect_downNoOpAtLastOption(t *testing.T) {
+func TestNewSelect_rightNoOpAtLastOption(t *testing.T) {
 	h, lastVal := selectHarness(t, "Cherry")
 	defer h.Close()
 
-	h.SendKey(KeyDown)
+	h.SendKey(KeyRight)
 
 	if *lastVal != "Cherry" {
-		t.Errorf("Down at last option should be no-op; got %q", *lastVal)
+		t.Errorf("Right at last option should be no-op; got %q", *lastVal)
 	}
 }
 
-func TestNewSelect_upNoOpAtFirstOption(t *testing.T) {
+func TestNewSelect_leftNoOpAtFirstOption(t *testing.T) {
 	h, lastVal := selectHarness(t, "Apple")
 	defer h.Close()
 
-	h.SendKey(KeyUp)
+	h.SendKey(KeyLeft)
 
 	if *lastVal != "Apple" {
-		t.Errorf("Up at first option should be no-op; got %q", *lastVal)
+		t.Errorf("Left at first option should be no-op; got %q", *lastVal)
 	}
 }
 
@@ -109,7 +109,7 @@ func TestNewSelect_ignoredWhenUnfocused(t *testing.T) {
 	})
 	defer h.Close()
 
-	h.SendKey(KeyDown)
+	h.SendKey(KeyRight)
 
 	if lastVal != "Apple" {
 		t.Errorf("unfocused select should not respond to keys; got %q", lastVal)
@@ -132,10 +132,10 @@ func TestNewSelect_tabCyclesFocusToSelect(t *testing.T) {
 	defer h.Close()
 
 	h.Tab() // move focus to the Select
-	h.SendKey(KeyDown)
+	h.SendKey(KeyRight)
 
 	if *lastVal != "Banana" {
-		t.Errorf("after Tab+Down: got %q, want Banana", *lastVal)
+		t.Errorf("after Tab+Right: got %q, want Banana", *lastVal)
 	}
 }
 
@@ -144,9 +144,9 @@ func TestNewSelect_unknownValueDefaultsToFirst(t *testing.T) {
 	h, lastVal := selectHarness(t, "Unknown")
 	defer h.Close()
 
-	h.SendKey(KeyDown)
+	h.SendKey(KeyRight)
 
 	if *lastVal != "Banana" {
-		t.Errorf("unknown value: after Down got %q, want Banana", *lastVal)
+		t.Errorf("unknown value: after Right got %q, want Banana", *lastVal)
 	}
 }

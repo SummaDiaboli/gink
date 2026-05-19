@@ -50,12 +50,18 @@ func dispatchClick(mx, my int) {
 	}
 
 	// Pass 2: Y-only fallback when nothing matched exactly.
+	// Pick the focusable with the largest f.x that is still ≤ mx, among those
+	// whose Y range contains vy. This correctly handles two-column layouts:
+	// a click at x=40 in the right panel will not bleed into a component at x=2
+	// in the left panel when a right-panel component at x=30 exists at the same row.
 	if targetIdx < 0 {
+		bestX := -1
 		for i, f := range focusables {
-			if f.h == 0 {
+			if f.h == 0 || f.x > mx {
 				continue
 			}
-			if vy >= f.y && vy < f.y+f.h {
+			if vy >= f.y && vy < f.y+f.h && f.x > bestX {
+				bestX = f.x
 				targetIdx = i
 			}
 		}

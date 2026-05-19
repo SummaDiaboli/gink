@@ -27,19 +27,22 @@ func App() gink.Element {
 	submitted, setSubmitted := gink.UseState(false)
 
 	if submitted {
-		return gink.BoxWithGap(1,
-			gink.Text("Contact Form", titleStyle),
-			gink.Text("✓ Message sent!", successStyle),
-			gink.Text("Thanks, "+name+". We'll reply to "+email+" shortly.", mutedStyle),
-			gink.C(gink.NewButton("Send another", func() {
-				setSubmitted(false)
-				setName("")
-				setEmail("")
-				setSubject("")
-				setBody("")
-				setErrMsg("")
-			})),
-			gink.Text("Tab to focus  ·  Enter/Space to activate  ·  Esc to quit", hintStyle),
+		return gink.PaddingXY(2, 1,
+			gink.BoxWithGap(1,
+				gink.C(gink.DividerWithLabel("Contact Form", titleStyle)),
+				gink.Text("✓ Message sent!", successStyle),
+				gink.Text("Thanks, "+name+". We'll reply to "+email+" shortly.", mutedStyle),
+				gink.C(gink.NewButton("Send another", func() {
+					setSubmitted(false)
+					setName("")
+					setEmail("")
+					setSubject("")
+					setBody("")
+					setErrMsg("")
+				})),
+				gink.C(gink.Divider),
+				gink.Text("Tab to focus  ·  Enter/Space to activate  ·  Esc to quit", hintStyle),
+			),
 		)
 	}
 
@@ -78,19 +81,25 @@ func App() gink.Element {
 		statusLine = gink.Text("Fill in all fields, then press Submit.", mutedStyle)
 	}
 
-	return gink.BoxWithGap(1,
-		gink.Text("Contact Form", titleStyle),
+	return gink.PaddingXY(2, 1,
+		gink.BoxWithGap(1,
+			gink.C(gink.DividerWithLabel("Contact Form", titleStyle)),
 
-		gink.Row(gink.Text("Name     ", labelStyle), gink.C(gink.NewInput(name, clearErr(setName)))),
-		gink.Row(gink.Text("Email    ", labelStyle), gink.C(gink.NewInput(email, clearErr(setEmail)))),
-		gink.Row(gink.Text("Subject  ", labelStyle), gink.C(gink.NewInput(subject, clearErr(setSubject)))),
-		gink.Row(gink.Text("Message  ", labelStyle), gink.C(gink.NewInput(body, clearErr(setBody)))),
+			gink.Row(gink.Text("Name     ", labelStyle), gink.C(gink.NewInput(name, clearErr(setName)))),
+			gink.Row(gink.Text("Email    ", labelStyle), gink.C(gink.NewInput(email, clearErr(setEmail)))),
+			gink.Row(gink.Text("Subject  ", labelStyle), gink.C(gink.NewInput(subject, clearErr(setSubject)))),
+			gink.Row(gink.Text("Message  ", labelStyle), gink.C(gink.NewInput(body, clearErr(setBody)))),
 
-		statusLine,
+			gink.C(gink.Divider),
 
-		gink.C(gink.NewButton("  Submit  ", submit)),
+			statusLine,
 
-		gink.Text("Tab to move between fields  ·  Esc to quit", hintStyle),
+			gink.C(gink.NewButton("  Submit  ", submit)),
+
+			gink.C(gink.Divider),
+
+			gink.Text("Tab to move between fields  ·  Esc to quit", hintStyle),
+		),
 	)
 }
 

@@ -75,9 +75,10 @@ func App() gink.Element {
 	}
 
 	children := []gink.Element{
-		gink.Text("Stopwatch", titleStyle),
+		gink.C(gink.DividerWithLabel("Stopwatch", titleStyle)),
 		gink.Text(formatDuration(elapsed), timerStyle),
 		gink.Text(statusStr, statusStyle),
+		gink.C(gink.Divider),
 		gink.RowWithGap(2,
 			gink.C(gink.NewButton(btnLabel, startStop)),
 			gink.C(gink.NewButton("  Lap    ", lap)),
@@ -86,14 +87,18 @@ func App() gink.Element {
 	}
 
 	if len(lapRows) > 0 {
-		children = append(children, gink.Box(lapRows...))
+		children = append(children,
+			gink.C(gink.DividerWithLabel("Laps")),
+			gink.Box(lapRows...),
+		)
 	}
 
 	children = append(children,
+		gink.C(gink.Divider),
 		gink.Text("Tab/ShiftTab move focus  ·  Enter/Space activate  ·  Esc quit", hintStyle),
 	)
 
-	return gink.BoxWithGap(1, children...)
+	return gink.PaddingXY(2, 1, gink.BoxWithGap(1, children...))
 }
 
 func main() {

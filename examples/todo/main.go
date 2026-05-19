@@ -130,19 +130,25 @@ func App() gink.Element {
 	done := doneCount(todos)
 	subtitle := fmt.Sprintf("%d task(s) · %d done · %d remaining", len(todos), done, len(todos)-done)
 
-	return gink.BoxWithGap(1,
-		gink.Text("Todo List", titleStyle),
-		gink.Text(subtitle, subtitleStyle),
+	return gink.PaddingXY(2, 1,
+		gink.BoxWithGap(1,
+			gink.C(gink.DividerWithLabel("Todo List", titleStyle)),
+			gink.Text(subtitle, subtitleStyle),
 
-		gink.C(TodoListComponent(todos, toggle, deleteTodo)),
+			gink.C(TodoListComponent(todos, toggle, deleteTodo)),
 
-		gink.Row(
-			gink.C(gink.NewInput(inputText, setInputText)),
-			gink.Text("  "),
-			gink.C(gink.NewButton("Add", addTodo)),
+			gink.C(gink.DividerWithLabel("Add Task")),
+
+			gink.Row(
+				gink.C(gink.NewInput(inputText, setInputText)),
+				gink.Text("  "),
+				gink.C(gink.NewButton("Add", addTodo)),
+			),
+
+			gink.C(gink.Divider),
+
+			gink.Text("↑↓ navigate  ·  Enter toggle  ·  d delete  ·  Tab switch focus  ·  Esc quit", hintStyle),
 		),
-
-		gink.Text("↑↓ navigate  ·  Enter toggle  ·  d delete  ·  Tab switch focus  ·  Esc quit", hintStyle),
 	)
 }
 

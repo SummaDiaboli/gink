@@ -153,6 +153,14 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			return rec.renderRow(el.Children, props.Gap, buf, x, y, path)
 		}
 		return rec.renderColumn(el.Children, props.Gap, buf, x, y, path)
+
+	case "padding":
+		props := el.Props.(Pad)
+		if len(el.Children) == 0 {
+			return 0, 0
+		}
+		cw, ch := rec.renderElement(el.Children[0], buf, x+props.Left, y+props.Top, path+"/0")
+		return cw + props.Left + props.Right, ch + props.Top + props.Bottom
 	}
 
 	return 0, 0

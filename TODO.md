@@ -10,6 +10,15 @@
 
 ## Nice to Have
 
+- `Image` improvements:
+  - Sixel protocol (Windows Terminal, WezTerm, xterm) for true raster output at full terminal resolution
+  - Kitty graphics protocol (Kitty, WezTerm)
+  - iTerm2 inline images (iTerm2, WezTerm on macOS)
+  - Auto-detect terminal protocol support via `$TERM_PROGRAM`, `$KITTY_WINDOW_ID`, `$WT_SESSION` env vars
+  - Bilinear interpolation option alongside Catmull-Rom (faster for large images)
+  - `LoadImage(path string)` / `LoadImageURL(url string)` convenience helpers
+- Video rendering — play video frames in the terminal at a target framerate, using the same protocol stack as image rendering
+
 ---
 
 ## Done
@@ -54,3 +63,4 @@
 - `ginktest.AssertLine` / `AssertLineContains` — line-specific assertion helpers ✓
 - `NewTable` horizontal scrolling — Left/Right shifts column viewport, ◀/▶ border indicators ✓
 - `UseAccessibility` — registers screen-reader label; exposed via terminal title and `Harness.AccessibilityLabel()` ✓
+- `Image` — quadrant-block true-colour renderer (2×2px/cell), Catmull-Rom scaling, auto-height, picsum example, `NewRGBColor` helper ✓

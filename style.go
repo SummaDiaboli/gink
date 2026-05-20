@@ -92,6 +92,13 @@ func (s Style) toTcell() tcell.Style {
 	return ts
 }
 
+// NewRGBColor returns a 24-bit true-colour Color for use with
+// [Style.Foreground] and [Style.Background]. r, g, b are in the range 0–255.
+// Requires a terminal with true-colour support (most modern terminals).
+func NewRGBColor(r, g, b int32) Color {
+	return tcell.NewRGBColor(r, g, b)
+}
+
 // TextProps holds the content and style for a text element.
 // Used internally by the reconciler; not part of the public API.
 type TextProps struct {

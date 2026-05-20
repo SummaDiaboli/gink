@@ -64,9 +64,13 @@ func UseInput(fn func(KeyEvent)) {
 	inputHandlers = append(inputHandlers, fn)
 }
 
-// dispatchKey fans a terminal key event out to all registered input handlers.
+// dispatchKey fans a terminal key event out to all registered handlers.
+// Global UseKeyboard handlers fire first, then UseInput handlers.
 func dispatchKey(ev *tcell.EventKey) {
 	ke := KeyEvent{Rune: ev.Rune(), Key: ev.Key()}
+	for _, fn := range keyboardHandlers {
+		fn(ke)
+	}
 	for _, fn := range inputHandlers {
 		fn(ke)
 	}

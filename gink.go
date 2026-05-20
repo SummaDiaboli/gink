@@ -22,6 +22,7 @@ func Render(root Component) error {
 	doRender := func() {
 		prevFocusables = append(prevFocusables[:0], focusables...)
 		inputHandlers = inputHandlers[:0]
+		keyboardHandlers = keyboardHandlers[:0]
 		clickHandlers = clickHandlers[:0]
 		pendingEffects = pendingEffects[:0]
 		focusables = focusables[:0]

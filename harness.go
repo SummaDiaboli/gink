@@ -66,6 +66,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	focusedIdx = 0
 	focusables = nil
 	prevFocusables = nil
+	keyboardHandlers = nil
 	activeCtx = nil
 	activePath = ""
 	scrollOffset = 0
@@ -93,6 +94,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 func (h *Harness) renderOnce() {
 	prevFocusables = append(prevFocusables[:0], focusables...)
 	inputHandlers = inputHandlers[:0]
+	keyboardHandlers = keyboardHandlers[:0]
 	clickHandlers = clickHandlers[:0]
 	pendingEffects = pendingEffects[:0]
 	focusables = focusables[:0]

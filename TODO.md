@@ -2,9 +2,6 @@
 
 ## Layout Primitives
 
-### Table (interactive extensions)
-- Horizontal scrolling for wide tables
-
 ---
 
 ## Hooks
@@ -12,8 +9,6 @@
 ---
 
 ## Nice to Have
-
-- Accessibility: screen reader hints via terminal title or alt text conventions
 
 ---
 
@@ -57,3 +52,5 @@
 - `UseKeyboard` — global key handler independent of focus ✓
 - Color themes — `Theme` struct, `ThemeCtx`, `UseTheme()`, built-in components read from theme ✓
 - `ginktest.AssertLine` / `AssertLineContains` — line-specific assertion helpers ✓
+- `NewTable` horizontal scrolling — Left/Right shifts column viewport, ◀/▶ border indicators ✓
+- `UseAccessibility` — registers screen-reader label; exposed via terminal title and `Harness.AccessibilityLabel()` ✓

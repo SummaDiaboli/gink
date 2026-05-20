@@ -17,15 +17,36 @@ import "strings"
 //	sel, setSel := gink.UseState(0)
 //	gink.C(gink.NewTable(cols, rows, sel, setSel, 8))
 func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), height int, styles ...Style) func() Element {
-	focusStyle := NewStyle().Bold().Foreground(ColorBrightCyan)
-	if len(styles) > 0 {
-		focusStyle = styles[0]
+	hasExplicitStyle := len(styles) > 0
+	explicitStyle := Style{}
+	if hasExplicitStyle {
+		explicitStyle = styles[0]
 	}
 	return func() Element {
+		focusStyle := explicitStyle
+		if !hasExplicitStyle {
+			focusStyle = UseTheme().Focused
+		}
+
 		offset, setOffset := UseState(0)
+		colOffset, setColOffset := UseState(0)
 		isFocused := UseFocus()
 
-		// Keep selected visible — silent clamp, no extra render needed.
+		termW := UseTermSize().Width
+		widths := tableCalcWidths(cols, rows)
+
+		// Determine whether horizontal scrolling is needed.
+		totalW := tableRowWidth(widths, 0, len(widths))
+		needsHScroll := totalW > termW
+
+		// Compute the visible column range given colOffset and terminal width.
+		colStart, colEnd := 0, len(cols)
+		if needsHScroll {
+			colStart = colOffset
+			colEnd = tableVisibleColEnd(widths, colOffset, termW)
+		}
+
+		// Keep selected row visible — silent clamp, no extra render needed.
 		if selected < offset {
 			offset = selected
 		} else if height > 0 && selected >= offset+height {
@@ -53,6 +74,14 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 						setOffset(next - height + 1)
 					}
 				}
+			case KeyLeft:
+				if needsHScroll && colOffset > 0 {
+					setColOffset(colOffset - 1)
+				}
+			case KeyRight:
+				if needsHScroll && colOffset < len(cols)-1 {
+					setColOffset(colOffset + 1)
+				}
 			}
 		})
 
@@ -69,28 +98,36 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			}
 		})
 
-		widths := tableCalcWidths(cols, rows)
-
 		end := offset + height
 		if end > len(rows) {
 			end = len(rows)
 		}
 
-		headers := make([]string, len(cols))
-		for i, col := range cols {
+		visWidths := widths[colStart:colEnd]
+
+		headers := make([]string, colEnd-colStart)
+		for i, col := range cols[colStart:colEnd] {
 			headers[i] = col.Header
 		}
 
+		hasLeft := colStart > 0
+		hasRight := colEnd < len(cols)
 		lines := []Element{
-			Text(tableBorderTop(widths)),
-			Text(tableFormatRow(headers, widths)),
-			Text(tableBorderMid(widths)),
+			Text(tableBorderTopScroll(visWidths, hasLeft, hasRight)),
+			Text(tableFormatRow(headers, visWidths)),
+			Text(tableBorderMid(visWidths)),
 		}
 
 		for i, row := range rows[offset:end] {
 			actualIdx := offset + i
 			style := NewStyle()
-			runes := []rune(tableFormatRow(row, widths))
+			visRow := make([]string, colEnd-colStart)
+			for j := range visRow {
+				if colStart+j < len(row) {
+					visRow[j] = row[colStart+j]
+				}
+			}
+			runes := []rune(tableFormatRow(visRow, visWidths))
 			if actualIdx == selected {
 				runes[0] = '▶'
 				if isFocused {
@@ -102,7 +139,7 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			lines = append(lines, Text(string(runes), style))
 		}
 
-		lines = append(lines, Text(tableBorderBot(widths)))
+		lines = append(lines, Text(tableBorderBot(visWidths)))
 		return Box(lines...)
 	}
 }
@@ -202,11 +239,63 @@ func tableFormatRow(cells []string, widths []int) string {
 }
 
 func tableBorderTop(widths []int) string {
+	return tableBorderTopScroll(widths, false, false)
+}
+
+// tableBorderTopScroll builds the top border, replacing corners with ◀/▶ when
+// columns are hidden to the left or right respectively.
+func tableBorderTopScroll(widths []int, hasLeft, hasRight bool) string {
 	segs := make([]string, len(widths))
 	for i, w := range widths {
 		segs[i] = strings.Repeat("─", w+2)
 	}
-	return "┌" + strings.Join(segs, "┬") + "┐"
+	left, right := "┌", "┐"
+	if hasLeft {
+		left = "◀"
+	}
+	if hasRight {
+		right = "▶"
+	}
+	return left + strings.Join(segs, "┬") + right
+}
+
+// tableVisibleColEnd returns the exclusive end index of the columns that fit
+// within maxWidth starting from colOffset. Always returns at least colOffset+1
+// so at least one column is shown.
+func tableVisibleColEnd(widths []int, colOffset, maxWidth int) int {
+	used := 2 // left and right border characters
+	end := colOffset
+	for end < len(widths) {
+		w := widths[end] + 2 // content + two spaces of padding
+		if end > colOffset {
+			w++ // column separator
+		}
+		if used+w > maxWidth {
+			break
+		}
+		used += w
+		end++
+	}
+	if end <= colOffset {
+		end = colOffset + 1
+	}
+	return end
+}
+
+// tableRowWidth returns the character width of a rendered table row spanning
+// columns [start, end).
+func tableRowWidth(widths []int, start, end int) int {
+	if end <= start {
+		return 2
+	}
+	total := 2 // outer borders
+	for i := start; i < end && i < len(widths); i++ {
+		total += widths[i] + 2 // content + padding
+		if i > start {
+			total++ // separator
+		}
+	}
+	return total
 }
 
 func tableBorderMid(widths []int) string {

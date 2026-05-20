@@ -73,6 +73,8 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	scrollContent = 0
 	footerHeight = 0
 	ThemeCtx = NewContext(DefaultTheme)
+	accessibilityHints = map[string]string{}
+	currentAccessibilityLabel = ""
 
 	h := &Harness{
 		rec:    NewReconciler(r),
@@ -102,6 +104,7 @@ func (h *Harness) renderOnce() {
 	renderOffsetX = 0
 	renderOffsetY = 0
 	currentTermSize = TermSize{Width: h.Width, Height: h.Height}
+	accessibilityHints = map[string]string{}
 	h.rec.FooterBuf = nil
 	virtual := h.rec.Render(C(h.root), h.Width, virtualHeight(h.Height))
 	footer := h.rec.FooterBuf
@@ -125,6 +128,7 @@ func (h *Harness) renderOnce() {
 		}
 	}
 	h.r.flush(h.buf)
+	resolveAccessibilityLabel()
 	runEffects()
 }
 
@@ -275,6 +279,14 @@ func (h *Harness) Click(x, y int) {
 	h.t.Helper()
 	dispatchClick(x, y)
 	h.Render()
+}
+
+// AccessibilityLabel returns the accessibility label registered by the currently
+// focused component via [UseAccessibility], or an empty string if none was set.
+// The label is resolved after each render, so it reflects the state after the
+// most recent interaction or [Harness.Render] call.
+func (h *Harness) AccessibilityLabel() string {
+	return AccessibilityLabel()
 }
 
 // Close releases the simulation screen. Call it with defer immediately after

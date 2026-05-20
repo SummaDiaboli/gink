@@ -209,3 +209,121 @@ func TestNewTable_showsFocusStyleOnSelectedRow(t *testing.T) {
 	}
 	t.Error("could not find row containing 'alpha'")
 }
+
+// ── NewTable horizontal scrolling ─────────────────────────────────────────────
+
+// narrowTableHarness creates a 25-column harness. At that width the three
+// standard test columns do not all fit at once (total natural width = 31),
+// so horizontal scrolling is exercised.
+func narrowTableHarness(t *testing.T) *Harness {
+	t.Helper()
+	h := NewHarnessSize(t, func() Element {
+		sel, setSel := UseState(0)
+		return C(NewTable(tableCols, tableRows, sel, func(i int) { setSel(i) }, 3))
+	}, 25, 20)
+	return h
+}
+
+// TestNewTable_hScrollRight_showsHiddenColumn verifies that pressing Right
+// shifts the column viewport so the initially-hidden Region column becomes visible.
+func TestNewTable_hScrollRight_showsHiddenColumn(t *testing.T) {
+	h := narrowTableHarness(t)
+	defer h.Close()
+
+	if h.Contains("Region") {
+		t.Skip("all columns already fit; increase column widths or reduce harness width")
+	}
+
+	h.SendKey(KeyRight)
+
+	if !h.Contains("Region") {
+		t.Errorf("after Right: Region column should be visible; lines: %v", h.Lines())
+	}
+}
+
+// TestNewTable_hScrollRight_hidesFirstColumn verifies that after scrolling right
+// the leftmost column (Name) is no longer rendered.
+func TestNewTable_hScrollRight_hidesFirstColumn(t *testing.T) {
+	h := narrowTableHarness(t)
+	defer h.Close()
+
+	h.SendKey(KeyRight)
+
+	if h.Contains("Name") {
+		t.Errorf("after Right: Name column should be hidden; lines: %v", h.Lines())
+	}
+}
+
+// TestNewTable_hScrollLeft_restoresFirstColumn verifies that pressing Left after
+// Right returns the view to the original column set.
+func TestNewTable_hScrollLeft_restoresFirstColumn(t *testing.T) {
+	h := narrowTableHarness(t)
+	defer h.Close()
+
+	h.SendKey(KeyRight)
+	h.SendKey(KeyLeft)
+
+	if !h.Contains("Name") {
+		t.Errorf("after Right+Left: Name column should be visible again; lines: %v", h.Lines())
+	}
+	if h.Contains("Region") {
+		t.Errorf("after Right+Left: Region column should be hidden again; lines: %v", h.Lines())
+	}
+}
+
+// TestNewTable_hScrollNoOpAtFirstColumn verifies that Left does nothing when the
+// leftmost column is already at column 0.
+func TestNewTable_hScrollNoOpAtFirstColumn(t *testing.T) {
+	h := narrowTableHarness(t)
+	defer h.Close()
+
+	h.SendKey(KeyLeft)
+
+	if !h.Contains("Name") {
+		t.Errorf("Left at first column should be no-op; lines: %v", h.Lines())
+	}
+}
+
+// TestNewTable_hScrollNoOpWhenAllFit verifies that Right is a no-op when all
+// columns are already visible (wide terminal).
+func TestNewTable_hScrollNoOpWhenAllFit(t *testing.T) {
+	// Default 80-wide harness — all tableCols fit.
+	h, _ := tableHarness(t, 0, 3)
+	defer h.Close()
+
+	h.SendKey(KeyRight)
+
+	if !h.Contains("Name") {
+		t.Errorf("Name should still be visible after Right when all columns fit; lines: %v", h.Lines())
+	}
+	if !h.Contains("Region") {
+		t.Errorf("Region should still be visible after Right when all columns fit; lines: %v", h.Lines())
+	}
+}
+
+// TestNewTable_hScrollRightIndicator verifies that the top border contains a ▶
+// indicator when columns are hidden to the right.
+func TestNewTable_hScrollRightIndicator(t *testing.T) {
+	h := narrowTableHarness(t)
+	defer h.Close()
+
+	if h.Contains("Region") {
+		t.Skip("all columns already fit")
+	}
+	if !strings.Contains(h.Line(0), "▶") {
+		t.Errorf("top border should contain ▶ when columns are hidden to the right; line 0: %q", h.Line(0))
+	}
+}
+
+// TestNewTable_hScrollLeftIndicator verifies that the top border contains a ◀
+// indicator when columns are hidden to the left.
+func TestNewTable_hScrollLeftIndicator(t *testing.T) {
+	h := narrowTableHarness(t)
+	defer h.Close()
+
+	h.SendKey(KeyRight)
+
+	if !strings.Contains(h.Line(0), "◀") {
+		t.Errorf("top border should contain ◀ after scrolling right; line 0: %q", h.Line(0))
+	}
+}

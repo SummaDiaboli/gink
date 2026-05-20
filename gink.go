@@ -28,6 +28,7 @@ func Render(root Component) error {
 		focusables = focusables[:0]
 		renderOffsetX = 0
 		renderOffsetY = 0
+		accessibilityHints = map[string]string{}
 		w, h := r.screen.Size()
 		currentTermSize = TermSize{Width: w, Height: h}
 		rec.FooterBuf = nil
@@ -53,6 +54,8 @@ func Render(root Component) error {
 			}
 		}
 		r.flush(screen)
+		resolveAccessibilityLabel()
+		r.screen.SetTitle(currentAccessibilityLabel)
 	}
 
 	render := func() {

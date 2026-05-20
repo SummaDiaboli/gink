@@ -15,6 +15,7 @@ Inspired by [Ink](https://github.com/vadimdemedes/ink) (React for CLI in JavaScr
 - [Core Concepts](#core-concepts)
 - [Layout](#layout)
 - [Styling](#styling)
+- [Theming](#theming)
 - [Hooks](#hooks)
 - [Built-in Components](#built-in-components)
 - [Scroll](#scroll)
@@ -30,7 +31,7 @@ Inspired by [Ink](https://github.com/vadimdemedes/ink) (React for CLI in JavaScr
 go get github.com/SummaDiaboli/gink
 ```
 
-Requires Go 1.21+ (generics are used for `UseState`, `UseAsync`, and `UseRef`).
+Requires Go 1.25+ (generics are used for `UseState`, `UseAsync`, and `UseRef`; `golang.org/x/image` is used for image scaling).
 
 ---
 
@@ -238,6 +239,61 @@ gink.Text("Title", gink.NewStyle().Bold().Foreground(gink.ColorBrightCyan))
 | `ColorWhite` | `ColorBrightWhite` |
 | `ColorDefault` | — |
 
+**True-colour (24-bit):**
+
+```go
+red := gink.NewRGBColor(255, 0, 0)
+gink.Text("RGB!", gink.NewStyle().Foreground(red))
+```
+
+---
+
+## Theming
+
+Gink has a built-in theme system that lets you define a consistent colour palette and have all built-in components pick it up automatically.
+
+```go
+// Declare a custom theme
+myTheme := gink.Theme{
+    Focused: gink.NewStyle().Bold().Foreground(gink.ColorBrightMagenta),
+    Accent:  gink.NewStyle().Bold().Foreground(gink.ColorBrightBlue),
+    Muted:   gink.NewStyle().Foreground(gink.ColorWhite),
+    Error:   gink.NewStyle().Bold().Foreground(gink.ColorBrightRed),
+    Success: gink.NewStyle().Bold().Foreground(gink.ColorBrightGreen),
+    Warning: gink.NewStyle().Bold().Foreground(gink.ColorBrightYellow),
+    Cursor:  gink.NewStyle().Reverse(),
+}
+
+// Apply it at the root of your app
+func App() gink.Element {
+    gink.SetContext(gink.ThemeCtx, myTheme)
+    // ...
+}
+```
+
+Read the current theme from any component with `UseTheme`:
+
+```go
+func MyComponent() gink.Element {
+    theme := gink.UseTheme()
+    return gink.Text("Accent text", theme.Accent)
+}
+```
+
+Built-in interactive components (`NewButton`, `NewList`, `NewSelect`, `NewTable`, `NewTextArea`) read `theme.Focused` (or `theme.Cursor` for text cursors) automatically. Pass an explicit style as the optional last argument to override the theme for a specific instance.
+
+**`Theme` fields:**
+
+| Field | Default | Used by |
+|---|---|---|
+| `Focused` | Bold bright-cyan | `NewButton`, `NewList`, `NewSelect`, `NewTable` highlight |
+| `Accent` | Bold bright-blue | — (available for custom components) |
+| `Muted` | White | — |
+| `Error` | Bold bright-red | — |
+| `Success` | Bold bright-green | — |
+| `Warning` | Bold bright-yellow | — |
+| `Cursor` | Reverse video | `NewTextArea` cursor, `NewInput` cursor |
+
 ---
 
 ## Hooks
@@ -388,6 +444,47 @@ gink.SetContext(ThemeCtx, "dark")
 theme := gink.UseContext(ThemeCtx)
 ```
 
+### UseKeyboard
+
+Global keyboard handler — fires for every keypress regardless of which component holds focus. Useful for app-wide shortcuts.
+
+```go
+gink.UseKeyboard(func(ev gink.KeyEvent) {
+    if ev.Rune == 'q' {
+        os.Exit(0)
+    }
+    if ev.Key == gink.KeyF1 {
+        showHelp()
+    }
+})
+```
+
+Unlike `UseInput`, `UseKeyboard` is not gated by focus.
+
+### UseClick
+
+```go
+gink.UseClick(func(x, y int) {
+    // x, y are terminal cell coordinates
+})
+```
+
+Fires on left mouse button clicks within the component's rendered area. Focus is transferred to the clicked component automatically; `UseClick` is called after focus transfer.
+
+### UseAccessibility
+
+Registers a human-readable label for the currently focused component. The label is exposed via the terminal title (readable by screen readers that monitor the title) and via `Harness.AccessibilityLabel()` in tests.
+
+```go
+func SearchBox() func() gink.Element {
+    return func() gink.Element {
+        query, setQuery := gink.UseState("")
+        gink.UseAccessibility("Search box — type to filter results")
+        return gink.C(gink.NewInput(query, setQuery))
+    }
+}
+```
+
 ---
 
 ## Built-in Components
@@ -473,12 +570,14 @@ gink.Table(cols, rows)
 
 ### NewTable
 
-Interactive version of `Table` — focusable, with Up/Down row selection and viewport scroll.
+Interactive version of `Table` — focusable, with Up/Down row selection, viewport scroll, and horizontal scrolling when columns exceed the terminal width.
 
 ```go
 sel, setSel := gink.UseState(0)
 gink.C(gink.NewTable(cols, rows, sel, setSel, 10)) // 10 visible rows
 ```
+
+Keys: Up/Down to move the row selection; Left/Right to scroll columns when the table is wider than the terminal. `◀`/`▶` corner indicators appear when there is hidden content in either direction.
 
 ### NewScrollView
 
@@ -503,6 +602,38 @@ gink.ProgressBar(0.72, 20, gink.NewStyle().Foreground(gink.ColorBrightGreen))
 gink.Badge("ONLINE", gink.NewStyle().Foreground(gink.ColorBrightGreen))
 // renders: [ ONLINE ]
 ```
+
+### Image
+
+Render an `image.Image` as a block of Unicode quadrant characters with true-colour foreground and background. Each terminal cell covers a 2×2 pixel region, giving double the resolution of plain half-block rendering.
+
+```go
+import (
+    _ "image/jpeg"
+    _ "image/png"
+)
+
+// width: output width in cells; height: output height in cells (0 = auto from aspect ratio)
+gink.Image(img, 40, 20)
+gink.Image(img, 40, 0) // auto-height
+```
+
+The source image is scaled with Catmull-Rom (bicubic) interpolation before rendering, so high-resolution sources produce sharp output. Fetch source images at a higher resolution than the output dimensions for best results — the scaler uses the extra detail for anti-aliasing.
+
+```go
+img, loading, err := gink.UseAsync(func() (image.Image, error) {
+    resp, _ := http.Get("https://example.com/photo.jpg")
+    defer resp.Body.Close()
+    img, _, _ := image.Decode(resp.Body)
+    return img, nil
+}, []any{})
+
+if !loading && err == nil {
+    return gink.Image(img, 40, 20)
+}
+```
+
+See `examples/imageview/` for a live demo that fetches random photos from [picsum.photos](https://picsum.photos) and refreshes on `R`.
 
 ---
 
@@ -556,11 +687,13 @@ func TestCounter_increment(t *testing.T) {
 | `SendRune(r)` | Type a printable character |
 | `SendKey(key)` | Send a special key (arrow keys, Home, End, …) |
 | `PageDown()` / `PageUp()` | Scroll viewport |
+| `Click(x, y)` | Simulate a left mouse click at cell (x, y) |
 | `Render()` | Force a re-render (for async polling) |
 | `Contains(s)` | True if any line contains `s` |
 | `Lines()` | Screen as `[]string`, one per row |
 | `Line(y)` | Trimmed content of row `y` |
 | `CellStyle(x, y)` | Raw `tcell.Style` at a cell |
+| `AccessibilityLabel()` | Current accessibility label (set via `UseAccessibility`) |
 | `Close()` | Release the simulation screen |
 
 **Assertions:**
@@ -568,8 +701,10 @@ func TestCounter_increment(t *testing.T) {
 ```go
 ginktest.AssertContains(t, h, "text")
 ginktest.AssertNotContains(t, h, "text")
-ginktest.AwaitContains(t, h, "text", 2*time.Second)    // poll until present
-ginktest.AwaitNotContains(t, h, "text", 2*time.Second) // poll until absent
+ginktest.AssertLine(t, h, 0, "exact line text")          // exact match on row y
+ginktest.AssertLineContains(t, h, 0, "partial text")     // substring match on row y
+ginktest.AwaitContains(t, h, "text", 2*time.Second)      // poll until present
+ginktest.AwaitNotContains(t, h, "text", 2*time.Second)   // poll until absent
 ```
 
 You can also use `gink.NewHarness` directly from the main package for lower-level access.

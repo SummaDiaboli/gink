@@ -26,11 +26,17 @@ package gink
 //	    gink.Text(items[sel]),
 //	)
 func NewList(items []string, selected int, onSelect func(int), height int, styles ...Style) func() Element {
-	focusStyle := NewStyle().Bold().Foreground(ColorBrightCyan)
-	if len(styles) > 0 {
-		focusStyle = styles[0]
+	hasExplicitStyle := len(styles) > 0
+	explicitStyle := Style{}
+	if hasExplicitStyle {
+		explicitStyle = styles[0]
 	}
 	return func() Element {
+		focusStyle := explicitStyle
+		if !hasExplicitStyle {
+			focusStyle = UseTheme().Focused
+		}
+
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
 

@@ -85,6 +85,28 @@ func AssertNotContains(t *testing.T, h *gink.Harness, s string) {
 	}
 }
 
+// AssertLine fails the test if row y (0-indexed from the top) does not exactly
+// equal want after trimming trailing spaces. Use this when the exact content of
+// a specific line matters, e.g. verifying a header or a status row.
+func AssertLine(t *testing.T, h *gink.Harness, y int, want string) {
+	t.Helper()
+	got := h.Line(y)
+	if got != want {
+		t.Errorf("line %d: got %q, want %q", y, got, want)
+	}
+}
+
+// AssertLineContains fails the test if row y (0-indexed from the top) does not
+// contain the substring s. More targeted than [AssertContains] when a specific
+// row's content must be verified independently of the rest of the screen.
+func AssertLineContains(t *testing.T, h *gink.Harness, y int, s string) {
+	t.Helper()
+	got := h.Line(y)
+	if !strings.Contains(got, s) {
+		t.Errorf("line %d %q does not contain %q", y, got, s)
+	}
+}
+
 // AwaitContains re-renders every 50 ms until the screen contains s or timeout
 // elapses. Use this for components that update asynchronously via
 // [gink.UseInterval] or [gink.UseEffect] goroutines.

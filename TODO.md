@@ -13,7 +13,6 @@
 
 ## Nice to Have
 
-- Mouse click support (tcell delivers mouse events; need hit-testing)
 - Accessibility: screen reader hints via terminal title or alt text conventions
 
 ---
@@ -53,3 +52,8 @@
 - `NewTextArea` — multi-line input with cursor, Up/Down/Home/End, viewport scroll, line split/merge ✓
 - `Style.Reverse()` — reverse video for cursor rendering ✓
 - `KeyHome` / `KeyEnd` constants ✓
+- Mouse click support — `UseClick` hook, focus transfer on left-click, exact hit-testing ✓
+- Click-to-select on `NewList`, `NewTable`, `NewButton`, `NewSelect` ✓
+- `UseKeyboard` — global key handler independent of focus ✓
+- Color themes — `Theme` struct, `ThemeCtx`, `UseTheme()`, built-in components read from theme ✓
+- `ginktest.AssertLine` / `AssertLineContains` — line-specific assertion helpers ✓

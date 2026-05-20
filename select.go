@@ -22,11 +22,17 @@ package gink
 //	    gink.Row(gink.Text("Theme:    "), gink.C(gink.NewSelect(themes, theme, setTheme))),
 //	)
 func NewSelect(options []string, value string, onChange func(string), styles ...Style) func() Element {
-	focusStyle := NewStyle().Bold().Foreground(ColorBrightCyan)
-	if len(styles) > 0 {
-		focusStyle = styles[0]
+	hasExplicitStyle := len(styles) > 0
+	explicitStyle := Style{}
+	if hasExplicitStyle {
+		explicitStyle = styles[0]
 	}
 	return func() Element {
+		focusStyle := explicitStyle
+		if !hasExplicitStyle {
+			focusStyle = UseTheme().Focused
+		}
+
 		isFocused := UseFocus()
 
 		// Resolve the current index; default to 0 if value is not in options.

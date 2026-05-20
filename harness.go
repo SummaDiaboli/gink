@@ -72,6 +72,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	scrollOffset = 0
 	scrollContent = 0
 	footerHeight = 0
+	ThemeCtx = NewContext(DefaultTheme)
 
 	h := &Harness{
 		rec:    NewReconciler(r),

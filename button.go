@@ -33,9 +33,10 @@ func NewButton(label string, onPress func()) func() Element {
 			onPress()
 		})
 
+		theme := UseTheme()
 		style := NewStyle()
 		if isFocused {
-			style = NewStyle().Bold().Foreground(ColorBrightCyan)
+			style = theme.Focused
 		}
 
 		return Text("[ "+label+" ]", style)

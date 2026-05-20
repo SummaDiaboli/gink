@@ -28,17 +28,12 @@ func UseClick(fn func(x, y int)) {
 // dispatchClick handles a mouse left-click at screen position (mx, my).
 // It finds the innermost focusable whose bounds contain the click, transfers
 // focus to it, and fires any registered UseClick handler for that component.
-//
-// Hit-testing is two-pass:
-//  1. Exact: find the last focusable whose full (x, y, w, h) bounds contain the click.
-//  2. Y-only fallback: if nothing matched exactly (e.g. the component's rendered text
-//     is narrower than the panel the user perceives as clickable), find the last
-//     focusable whose Y range contains the click. This lets users click anywhere in a
-//     list row without needing to land precisely on the text.
 func dispatchClick(mx, my int) {
 	vy := my + scrollOffset
 
-	// Pass 1: exact (x + y) hit-test. Take the last (innermost) match.
+	// Find the last focusable in tree order (innermost) whose full (x, y, w, h)
+	// bounds contain (mx, vy). Taking the last match gives priority to inner
+	// components over their ancestors when bounds overlap.
 	targetIdx := -1
 	for i, f := range focusables {
 		if f.w == 0 || f.h == 0 {
@@ -46,24 +41,6 @@ func dispatchClick(mx, my int) {
 		}
 		if mx >= f.x && mx < f.x+f.w && vy >= f.y && vy < f.y+f.h {
 			targetIdx = i
-		}
-	}
-
-	// Pass 2: Y-only fallback when nothing matched exactly.
-	// Pick the focusable with the largest f.x that is still ≤ mx, among those
-	// whose Y range contains vy. This correctly handles two-column layouts:
-	// a click at x=40 in the right panel will not bleed into a component at x=2
-	// in the left panel when a right-panel component at x=30 exists at the same row.
-	if targetIdx < 0 {
-		bestX := -1
-		for i, f := range focusables {
-			if f.h == 0 || f.x > mx {
-				continue
-			}
-			if vy >= f.y && vy < f.y+f.h && f.x > bestX {
-				bestX = f.x
-				targetIdx = i
-			}
 		}
 	}
 

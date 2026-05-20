@@ -173,3 +173,48 @@ func TestNewList_showsFocusStyleOnSelectedItem(t *testing.T) {
 		t.Error("focused selected item should have non-default style")
 	}
 }
+
+// ── NewList vertical scroll indicators ───────────────────────────────────────
+
+// TestNewList_vScrollDownIndicator verifies that a ↓ row appears when items
+// extend below the visible viewport.
+func TestNewList_vScrollDownIndicator(t *testing.T) {
+	// height=3 shows Alpha, Bravo, Charlie; Delta and Echo are below.
+	h, _, _ := listHarness(t, 0, 3)
+	defer h.Close()
+
+	if !h.Contains("↓") {
+		t.Errorf("expected ↓ indicator when items extend below viewport; lines: %v", h.Lines())
+	}
+}
+
+// TestNewList_vScrollUpIndicator verifies that a ↑ row appears when items
+// are hidden above the current viewport.
+func TestNewList_vScrollUpIndicator(t *testing.T) {
+	// height=3; scroll to sel=3 so Alpha leaves the viewport.
+	h, _, _ := listHarness(t, 0, 3)
+	defer h.Close()
+
+	h.SendKey(KeyDown)
+	h.SendKey(KeyDown)
+	h.SendKey(KeyDown)
+
+	if !h.Contains("↑") {
+		t.Errorf("expected ↑ indicator when items are hidden above viewport; lines: %v", h.Lines())
+	}
+}
+
+// TestNewList_vScrollNoIndicatorsWhenAllFit verifies that no indicators appear
+// when all items fit within the viewport height.
+func TestNewList_vScrollNoIndicatorsWhenAllFit(t *testing.T) {
+	// height=5 fits all 5 listItems exactly.
+	h, _, _ := listHarness(t, 0, 5)
+	defer h.Close()
+
+	if h.Contains("↑") {
+		t.Errorf("unexpected ↑ indicator when all items fit; lines: %v", h.Lines())
+	}
+	if h.Contains("↓") {
+		t.Errorf("unexpected ↓ indicator when all items fit; lines: %v", h.Lines())
+	}
+}

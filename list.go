@@ -32,9 +32,10 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 		explicitStyle = styles[0]
 	}
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
+		theme := UseTheme()
+		focusStyle := theme.Focused
+		if hasExplicitStyle {
+			focusStyle = explicitStyle
 		}
 
 		offset, setOffset := UseState(0)
@@ -83,7 +84,13 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 			end = len(items)
 		}
 
-		rows := make([]Element, end-offset)
+		hasAbove := offset > 0
+		hasBelow := end < len(items)
+
+		rows := make([]Element, 0, end-offset+2)
+		if hasAbove {
+			rows = append(rows, Text("  ↑", theme.Muted))
+		}
 		for i, item := range items[offset:end] {
 			actualIdx := offset + i
 			cursor := "  "
@@ -96,7 +103,10 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 					style = NewStyle().Bold()
 				}
 			}
-			rows[i] = Text(cursor+item, style)
+			rows = append(rows, Text(cursor+item, style))
+		}
+		if hasBelow {
+			rows = append(rows, Text("  ↓", theme.Muted))
 		}
 		return Box(rows...)
 	}

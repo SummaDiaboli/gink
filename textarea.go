@@ -149,6 +149,34 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 					setCurCol(prevLen)
 				}
 
+			case KeyCtrlV:
+				text, _ := clipRead()
+				text = strings.ReplaceAll(text, "\r\n", "\n")
+				text = strings.ReplaceAll(text, "\r", "\n")
+				pastedLines := strings.Split(text, "\n")
+				// Merge first pasted line into current line at cursor.
+				firstPart := string(lr[:cc]) + pastedLines[0]
+				lastPart := pastedLines[len(pastedLines)-1] + string(lr[cc:])
+				newLines := make([]string, 0, nl+len(pastedLines)-1)
+				newLines = append(newLines, ls[:cl]...)
+				if len(pastedLines) == 1 {
+					newLines = append(newLines, firstPart+string(lr[cc:]))
+				} else {
+					newLines = append(newLines, firstPart)
+					newLines = append(newLines, pastedLines[1:len(pastedLines)-1]...)
+					newLines = append(newLines, lastPart)
+				}
+				newLines = append(newLines, ls[cl+1:]...)
+				onChange(strings.Join(newLines, "\n"))
+				// Move cursor to end of pasted content.
+				newCurLine := cl + len(pastedLines) - 1
+				newCurCol := len([]rune(pastedLines[len(pastedLines)-1]))
+				if len(pastedLines) == 1 {
+					newCurCol = cc + len([]rune(pastedLines[0]))
+				}
+				setCurLine(newCurLine)
+				setCurCol(newCurCol)
+
 			case KeyRune:
 				newLine := string(lr[:cc]) + string(ev.Rune) + string(lr[cc:])
 				newLines := make([]string, nl)

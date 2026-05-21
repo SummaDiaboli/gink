@@ -27,6 +27,7 @@ const (
 	KeyHome       = tcell.KeyHome       // Home — move to start of line
 	KeyEnd        = tcell.KeyEnd        // End  — move to end of line
 	KeyRune       = tcell.KeyRune       // any printable character — use ev.Rune to identify it
+	KeyCtrlV      = tcell.KeyCtrlV     // Ctrl+V — paste from clipboard
 )
 
 // inputHandlers holds the handlers registered by UseInput during the current render pass.

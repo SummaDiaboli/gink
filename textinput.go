@@ -1,5 +1,7 @@
 package gink
 
+import "strings"
+
 // NewInput returns a controlled single-line text input component.
 // "Controlled" means the parent component owns the state — NewInput renders
 // value and calls onChange with the updated string on each keystroke, but never
@@ -33,6 +35,13 @@ func NewInput(value string, onChange func(string)) func() Element {
 				if len(runes) > 0 {
 					onChange(string(runes[:len(runes)-1]))
 				}
+			case KeyCtrlV:
+				text, _ := clipRead()
+				// Collapse newlines — single-line input cannot display them.
+				text = strings.ReplaceAll(text, "\r\n", " ")
+				text = strings.ReplaceAll(text, "\n", " ")
+				text = strings.ReplaceAll(text, "\r", " ")
+				onChange(value + text)
 			case KeyRune:
 				onChange(value + string(ev.Rune))
 			}

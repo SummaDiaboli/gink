@@ -5,6 +5,7 @@ go 1.25.0
 require github.com/gdamore/tcell/v2 v2.13.9
 
 require (
+	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/gdamore/encoding v1.0.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect

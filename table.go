@@ -53,6 +53,11 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			offset = selected - height + 1
 		}
 
+		end := offset + height
+		if end > len(rows) {
+			end = len(rows)
+		}
+
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
 				return
@@ -89,19 +94,13 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 		const tableHeaderRows = 3
 		UseClick(func(_, localY int) {
 			dataRow := localY - tableHeaderRows
-			if dataRow < 0 {
-				return
-			}
-			target := offset + dataRow
-			if target < len(rows) {
-				onSelect(target)
+			if dataRow >= 0 && dataRow < (end-offset) {
+				target := offset + dataRow
+				if target < len(rows) {
+					onSelect(target)
+				}
 			}
 		})
-
-		end := offset + height
-		if end > len(rows) {
-			end = len(rows)
-		}
 
 		visWidths := widths[colStart:colEnd]
 
@@ -115,7 +114,7 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 		lines := []Element{
 			Text(tableBorderTopScroll(visWidths, hasLeft, hasRight)),
 			Text(tableFormatRow(headers, visWidths)),
-			Text(tableBorderMid(visWidths)),
+			Text(tableBorderMid(visWidths, offset > 0)),
 		}
 
 		for i, row := range rows[offset:end] {
@@ -139,7 +138,7 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			lines = append(lines, Text(string(runes), style))
 		}
 
-		lines = append(lines, Text(tableBorderBot(visWidths)))
+		lines = append(lines, Text(tableBorderBot(visWidths, end < len(rows))))
 		return Box(lines...)
 	}
 }
@@ -190,12 +189,12 @@ func Table(cols []Column, rows [][]string, styles ...Style) Element {
 	lines := []Element{
 		Text(tableBorderTop(widths), style),
 		Text(tableFormatRow(headers, widths), style),
-		Text(tableBorderMid(widths), style),
+		Text(tableBorderMid(widths, false), style),
 	}
 	for _, row := range rows {
 		lines = append(lines, Text(tableFormatRow(row, widths), style))
 	}
-	lines = append(lines, Text(tableBorderBot(widths), style))
+	lines = append(lines, Text(tableBorderBot(widths, false), style))
 
 	return Box(lines...)
 }
@@ -298,20 +297,32 @@ func tableRowWidth(widths []int, start, end int) int {
 	return total
 }
 
-func tableBorderMid(widths []int) string {
+// tableBorderMid builds the header-separator border, replacing the right corner
+// with ↑ when rows are hidden above the current viewport.
+func tableBorderMid(widths []int, hasAbove bool) string {
 	segs := make([]string, len(widths))
 	for i, w := range widths {
 		segs[i] = strings.Repeat("─", w+2)
 	}
-	return "├" + strings.Join(segs, "┼") + "┤"
+	right := "┤"
+	if hasAbove {
+		right = "↑"
+	}
+	return "├" + strings.Join(segs, "┼") + right
 }
 
-func tableBorderBot(widths []int) string {
+// tableBorderBot builds the bottom border, replacing the right corner with ↓
+// when rows are hidden below the current viewport.
+func tableBorderBot(widths []int, hasBelow bool) string {
 	segs := make([]string, len(widths))
 	for i, w := range widths {
 		segs[i] = strings.Repeat("─", w+2)
 	}
-	return "└" + strings.Join(segs, "┴") + "┘"
+	right := "┘"
+	if hasBelow {
+		right = "↓"
+	}
+	return "└" + strings.Join(segs, "┴") + right
 }
 
 // tableTruncate clips s to maxWidth runes, replacing the last rune with "…" when

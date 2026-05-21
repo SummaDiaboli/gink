@@ -315,6 +315,56 @@ func TestNewTable_hScrollRightIndicator(t *testing.T) {
 	}
 }
 
+// ── NewTable vertical scroll indicators ──────────────────────────────────────
+
+// TestNewTable_vScrollDownIndicator verifies that the bottom border shows ↓
+// when rows are hidden below the visible viewport.
+func TestNewTable_vScrollDownIndicator(t *testing.T) {
+	// height=3, 5 rows: delta and echo are below the viewport from the start.
+	h, _ := tableHarness(t, 0, 3)
+	defer h.Close()
+
+	// Bottom border is at line height+3 = 6 (top + header + mid + 3 data rows).
+	botLine := h.Line(6)
+	if !strings.Contains(botLine, "↓") {
+		t.Errorf("bottom border should contain ↓ when rows are hidden below; got %q", botLine)
+	}
+}
+
+// TestNewTable_vScrollUpIndicator verifies that the mid border (header separator)
+// shows ↑ when rows are hidden above the current viewport.
+func TestNewTable_vScrollUpIndicator(t *testing.T) {
+	h, _ := tableHarness(t, 0, 3)
+	defer h.Close()
+
+	// Three downs: sel=3 pushes offset to 1, scrolling alpha out of view.
+	h.SendKey(KeyDown)
+	h.SendKey(KeyDown)
+	h.SendKey(KeyDown)
+
+	// Mid border is always at line 2.
+	midLine := h.Line(2)
+	if !strings.Contains(midLine, "↑") {
+		t.Errorf("mid border should contain ↑ when rows are hidden above; got %q", midLine)
+	}
+}
+
+// TestNewTable_vScrollNoIndicatorsWhenAllFit verifies that neither ↑ nor ↓
+// appears when all rows fit within the viewport height.
+func TestNewTable_vScrollNoIndicatorsWhenAllFit(t *testing.T) {
+	// height=5 fits all 5 rows exactly — no scrolling needed.
+	h, _ := tableHarness(t, 0, 5)
+	defer h.Close()
+
+	// Mid border at line 2, bottom border at line 2+1+5=8.
+	if strings.Contains(h.Line(2), "↑") {
+		t.Errorf("mid border should not show ↑ when all rows fit; got %q", h.Line(2))
+	}
+	if strings.Contains(h.Line(8), "↓") {
+		t.Errorf("bottom border should not show ↓ when all rows fit; got %q", h.Line(8))
+	}
+}
+
 // TestNewTable_hScrollLeftIndicator verifies that the top border contains a ◀
 // indicator when columns are hidden to the left.
 func TestNewTable_hScrollLeftIndicator(t *testing.T) {

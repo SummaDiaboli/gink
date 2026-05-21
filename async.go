@@ -15,6 +15,9 @@ import "sync/atomic"
 //   - []any{}   — runs once when the component mounts
 //   - []any{a}  — re-runs whenever a changes
 //
+// Note: fn itself is not compared between renders. If fn closes over values
+// that change independently of deps, include those values in deps explicitly.
+//
 // When deps change before fn returns, the in-flight goroutine is cancelled:
 // its result is silently discarded so stale data never overwrites a newer result.
 //
@@ -35,10 +38,24 @@ func UseAsync[T any](fn func() (T, error), deps []any) (value T, loading bool, e
 	isLoading, setLoading := UseState(true)
 	errState, setErr := UseState[error](nil)
 
-	UseEffect(func() func() {
-		setLoading(true)
-		setErr(nil)
+	firstRenderRef := UseRef(true)
+	isFirstRender := firstRenderRef.Value
+	firstRenderRef.Value = false
 
+	depsRef := UseRef[[]any](nil)
+	depsChanged := !isFirstRender && (deps == nil || depsRef.Value == nil || !depsEqual(depsRef.Value, deps))
+	depsRef.Value = deps
+
+	if depsChanged {
+		val = zero
+		setVal(zero)
+		isLoading = true
+		setLoading(true)
+		errState = nil
+		setErr(nil)
+	}
+
+	UseEffect(func() func() {
 		// cancelled is written by the cleanup (main goroutine) and read by the
 		// async goroutine after fn() returns, so it must be accessed atomically.
 		var cancelled int32

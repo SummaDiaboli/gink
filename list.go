@@ -32,20 +32,32 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 		explicitStyle = styles[0]
 	}
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
+		theme := UseTheme()
+		focusStyle := theme.Focused
+		if hasExplicitStyle {
+			focusStyle = explicitStyle
 		}
 
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
 
-		// Keep selected visible — silent clamp, no extra render needed.
+		// Keep selected visible. Persist via setOffset so the viewport stays
+		// stable across renders (e.g. after an external selection change).
 		if selected < offset {
 			offset = selected
+			setOffset(offset)
 		} else if height > 0 && selected >= offset+height {
 			offset = selected - height + 1
+			setOffset(offset)
 		}
+
+		end := offset + height
+		if end > len(items) {
+			end = len(items)
+		}
+
+		hasAbove := offset > 0
+		hasBelow := end < len(items)
 
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
@@ -72,18 +84,22 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 		})
 
 		UseClick(func(_, localY int) {
-			target := offset + localY
-			if target >= 0 && target < len(items) {
-				onSelect(target)
+			clickY := localY
+			if hasAbove {
+				clickY = localY - 1
+			}
+			if clickY >= 0 && clickY < (end-offset) {
+				target := offset + clickY
+				if target >= 0 && target < len(items) {
+					onSelect(target)
+				}
 			}
 		})
 
-		end := offset + height
-		if end > len(items) {
-			end = len(items)
+		rows := make([]Element, 0, end-offset+2)
+		if hasAbove {
+			rows = append(rows, Text("  ↑", theme.Muted))
 		}
-
-		rows := make([]Element, end-offset)
 		for i, item := range items[offset:end] {
 			actualIdx := offset + i
 			cursor := "  "
@@ -96,7 +112,10 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 					style = NewStyle().Bold()
 				}
 			}
-			rows[i] = Text(cursor+item, style)
+			rows = append(rows, Text(cursor+item, style))
+		}
+		if hasBelow {
+			rows = append(rows, Text("  ↓", theme.Muted))
 		}
 		return Box(rows...)
 	}

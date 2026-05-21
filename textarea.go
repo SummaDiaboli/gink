@@ -30,7 +30,7 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 
 		curLine, setCurLine := UseState(0)
 		curCol, setCurCol := UseState(0)
-		offset, _ := UseState(0)
+		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
 
 		lines := strings.Split(value, "\n")
@@ -39,17 +39,21 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 		// Clamp cursor to valid position when value changes externally.
 		if curLine >= nLines {
 			curLine = nLines - 1
+			setCurLine(curLine)
 		}
 		lineRunes := []rune(lines[curLine])
 		if curCol > len(lineRunes) {
 			curCol = len(lineRunes)
+			setCurCol(curCol)
 		}
 
 		// Scroll viewport to keep cursor visible.
 		if curLine < offset {
 			offset = curLine
+			setOffset(offset)
 		} else if height > 0 && curLine >= offset+height {
 			offset = curLine - height + 1
+			setOffset(offset)
 		}
 
 		UseInput(func(ev KeyEvent) {

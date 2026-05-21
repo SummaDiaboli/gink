@@ -218,3 +218,38 @@ func TestNewList_vScrollNoIndicatorsWhenAllFit(t *testing.T) {
 		t.Errorf("unexpected ↓ indicator when all items fit; lines: %v", h.Lines())
 	}
 }
+
+func TestNewList_ClickSelection(t *testing.T) {
+	// 1. With height=5 (no up/down indicators, offset=0)
+	h, lastSel, _ := listHarness(t, 0, 5)
+	defer h.Close()
+
+	// Click on Bravo (index 1), which is at localY=1
+	h.Click(0, 1)
+	if *lastSel != 1 {
+		t.Errorf("expected sel=1 after clicking localY=1 when hasAbove=false; got %d", *lastSel)
+	}
+
+	// 2. With height=3, selected=3 (Delta), so offset=1 (items: Bravo, Charlie, Delta), hasAbove=true
+	h2, lastSel2, _ := listHarness(t, 3, 3)
+	defer h2.Close()
+
+	// Screen:
+	// Line 0: "  ↑"
+	// Line 1: "  Bravo"
+	// Line 2: "  Charlie"
+	// Line 3: "▶ Delta"
+	// Line 4: "  ↓"
+
+	// Click on Bravo (which is at Line 1 on the screen, index 1 in items)
+	h2.Click(0, 1)
+	if *lastSel2 != 1 {
+		t.Errorf("expected sel=1 after clicking Bravo at localY=1 when hasAbove=true; got %d", *lastSel2)
+	}
+
+	// Click on the up indicator (Line 0 on screen), selection should NOT change (should remain 1)
+	h2.Click(0, 0)
+	if *lastSel2 != 1 {
+		t.Errorf("clicking scroll up indicator changed selection to %d", *lastSel2)
+	}
+}

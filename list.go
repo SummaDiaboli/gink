@@ -41,12 +41,23 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
 
-		// Keep selected visible — silent clamp, no extra render needed.
+		// Keep selected visible. Persist via setOffset so the viewport stays
+		// stable across renders (e.g. after an external selection change).
 		if selected < offset {
 			offset = selected
+			setOffset(offset)
 		} else if height > 0 && selected >= offset+height {
 			offset = selected - height + 1
+			setOffset(offset)
 		}
+
+		end := offset + height
+		if end > len(items) {
+			end = len(items)
+		}
+
+		hasAbove := offset > 0
+		hasBelow := end < len(items)
 
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
@@ -73,19 +84,17 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 		})
 
 		UseClick(func(_, localY int) {
-			target := offset + localY
-			if target >= 0 && target < len(items) {
-				onSelect(target)
+			clickY := localY
+			if hasAbove {
+				clickY = localY - 1
+			}
+			if clickY >= 0 && clickY < (end-offset) {
+				target := offset + clickY
+				if target >= 0 && target < len(items) {
+					onSelect(target)
+				}
 			}
 		})
-
-		end := offset + height
-		if end > len(items) {
-			end = len(items)
-		}
-
-		hasAbove := offset > 0
-		hasBelow := end < len(items)
 
 		rows := make([]Element, 0, end-offset+2)
 		if hasAbove {

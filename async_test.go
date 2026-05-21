@@ -165,3 +165,33 @@ func TestUseAsync_ignoresStaleResult(t *testing.T) {
 		t.Errorf("result-2 disappeared after stale result attempt\nscreen:\n%s", strings.Join(h.Lines(), "\n"))
 	}
 }
+
+func TestUseAsync_immediateLoadingAndResetOnDepChange(t *testing.T) {
+	var setID func(int)
+
+	h := NewHarness(t, func() Element {
+		id, setIDFn := UseState(1)
+		setID = setIDFn
+		val, loading, _ := UseAsync(func() (string, error) {
+			time.Sleep(100 * time.Millisecond)
+			return fmt.Sprintf("result-%d", id), nil
+		}, []any{id})
+		if loading {
+			return Text(fmt.Sprintf("loading-%d: val=%q", id, val))
+		}
+		return Text(fmt.Sprintf("done-%d: val=%q", id, val))
+	})
+	defer h.Close()
+
+	// Wait for the first task to finish.
+	awaitContains(t, h, "done-1: val=\"result-1\"", 300*time.Millisecond)
+
+	// Set ID to 2 and immediately render.
+	setID(2)
+	h.Render()
+
+	// Immediately after setting ID to 2, it must return loading=true and value="" (reset).
+	if !h.Contains("loading-2: val=\"\"") {
+		t.Errorf("immediate render after dep change failed, got screen: %q", h.Line(0))
+	}
+}

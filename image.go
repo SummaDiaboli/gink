@@ -42,7 +42,13 @@ var onesCount4 = [16]int{0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4}
 //
 // Image does not use hooks and may be called outside a component function.
 func Image(src image.Image, width, height int) Element {
+	if src == nil || width <= 0 {
+		return Box()
+	}
 	b := src.Bounds()
+	if b.Dx() == 0 || b.Dy() == 0 {
+		return Box()
+	}
 
 	cellW := width
 	var cellH int

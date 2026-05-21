@@ -74,7 +74,9 @@ func SetContext[T any](ctx *Context[T], value T) {
 	ctx.mu.Unlock()
 
 	// Mark each subscribed component dirty outside the lock to avoid holding
-	// ctx.mu while markDirty acquires the renderer's mutex.
+	// ctx.mu while markDirty acquires the renderer's mutex. This is safe
+	// because gink's render loop is single-goroutine: renderContext pointers
+	// in the snapshot remain valid until the next render cycle.
 	for _, w := range watchers {
 		w.renderer.markDirty(w.path)
 	}

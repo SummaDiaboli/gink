@@ -53,6 +53,11 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			offset = selected - height + 1
 		}
 
+		end := offset + height
+		if end > len(rows) {
+			end = len(rows)
+		}
+
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
 				return
@@ -89,19 +94,13 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 		const tableHeaderRows = 3
 		UseClick(func(_, localY int) {
 			dataRow := localY - tableHeaderRows
-			if dataRow < 0 {
-				return
-			}
-			target := offset + dataRow
-			if target < len(rows) {
-				onSelect(target)
+			if dataRow >= 0 && dataRow < (end-offset) {
+				target := offset + dataRow
+				if target < len(rows) {
+					onSelect(target)
+				}
 			}
 		})
-
-		end := offset + height
-		if end > len(rows) {
-			end = len(rows)
-		}
 
 		visWidths := widths[colStart:colEnd]
 

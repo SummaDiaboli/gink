@@ -72,6 +72,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	scrollOffset = 0
 	scrollContent = 0
 	footerHeight = 0
+	focusBarrier = ""
 	ThemeCtx = NewContext(DefaultTheme)
 	accessibilityHints = map[string]string{}
 	currentAccessibilityLabel = ""
@@ -101,6 +102,7 @@ func (h *Harness) renderOnce() {
 	clickHandlers = clickHandlers[:0]
 	pendingEffects = pendingEffects[:0]
 	focusables = focusables[:0]
+	focusBarrier = ""
 	renderOffsetX = 0
 	renderOffsetY = 0
 	currentTermSize = TermSize{Width: h.Width, Height: h.Height}
@@ -153,6 +155,11 @@ func (h *Harness) Render() {
 			}
 			h.renderOnce()
 		}
+	}
+	prevIdx := focusedIdx
+	snapFocusToBarrier()
+	if focusedIdx != prevIdx {
+		h.renderOnce() // reflect snapped focus in components
 	}
 	focusChanged = false
 	if len(focusables) > 0 && focusedIdx >= len(focusables) {

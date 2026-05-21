@@ -113,12 +113,90 @@ func isFocusedWithinPath(path string) bool {
 // cleared after the scroll check so manual scrolling is never overridden.
 var focusChanged bool
 
-// advanceFocus moves focus forward (delta=1) or backward (delta=-1), wrapping around.
+// focusBarrier is the tree path of the active focus barrier (e.g. a modal).
+// When non-empty, Tab/Shift+Tab cycle only within that subtree. Reset to ""
+// at the start of each render pass and re-registered by the component that
+// owns the barrier.
+var focusBarrier string
+
+// UseFocusBarrier registers the current component as a focus barrier.
+// While a barrier is active, Tab and Shift+Tab cycle focus only within this
+// component's subtree, and focus is automatically snapped inside when the
+// barrier first appears. The barrier is cleared at the start of each render
+// pass, so it must be called unconditionally on every render.
+//
+// Intended for modal dialogs that must trap focus until dismissed:
+//
+//	func NewModal(...) func() Element {
+//	    return func() Element {
+//	        gink.UseFocusBarrier()
+//	        ...
+//	    }
+//	}
+func UseFocusBarrier() {
+	if activeCtx == nil {
+		panic("gink: UseFocusBarrier called outside of a component render — hooks must be called at the top level of a component function")
+	}
+	focusBarrier = activePath
+}
+
+// snapFocusToBarrier moves focusedIdx to the first focusable within the
+// barrier subtree when focus is currently outside it. Called after each
+// render pass when focusBarrier is non-empty.
+func snapFocusToBarrier() {
+	if focusBarrier == "" {
+		return
+	}
+	prefix := focusBarrier + "/"
+	inBarrier := func(path string) bool {
+		return path == focusBarrier || strings.HasPrefix(path, prefix)
+	}
+	if focusedIdx < len(focusables) && inBarrier(focusables[focusedIdx].path) {
+		return // already inside
+	}
+	for i, f := range focusables {
+		if inBarrier(f.path) {
+			focusedIdx = i
+			focusChanged = true
+			return
+		}
+	}
+}
+
+// advanceFocus moves focus forward (delta=1) or backward (delta=-1).
+// When a focusBarrier is active it cycles only within that subtree;
+// otherwise it wraps around all focusables.
 // Called by the runtime on Tab / Shift+Tab — not part of the public API.
 func advanceFocus(delta int) {
 	if len(focusables) == 0 {
 		return
 	}
-	focusedIdx = (focusedIdx + delta + len(focusables)) % len(focusables)
+	if focusBarrier == "" {
+		focusedIdx = (focusedIdx + delta + len(focusables)) % len(focusables)
+		focusChanged = true
+		return
+	}
+	prefix := focusBarrier + "/"
+	var indices []int
+	for i, f := range focusables {
+		if f.path == focusBarrier || strings.HasPrefix(f.path, prefix) {
+			indices = append(indices, i)
+		}
+	}
+	if len(indices) == 0 {
+		return
+	}
+	cur := -1
+	for i, idx := range indices {
+		if idx == focusedIdx {
+			cur = i
+			break
+		}
+	}
+	if cur == -1 {
+		focusedIdx = indices[0]
+	} else {
+		focusedIdx = indices[(cur+delta+len(indices))%len(indices)]
+	}
 	focusChanged = true
 }

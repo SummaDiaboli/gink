@@ -46,6 +46,7 @@ func NewMultiSelect(items []string, selected []bool, onToggle func(int), height 
 		}
 		if cursor < 0 {
 			cursor = 0
+			setCursor(cursor)
 		}
 
 		// Keep cursor visible in viewport.

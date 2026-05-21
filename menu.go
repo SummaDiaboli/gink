@@ -129,7 +129,8 @@ func NewMenu(items []MenuItem, onSelect func(MenuItem), onClose func(), styles .
 }
 
 // clampToEnabled returns the nearest enabled item index at or after idx.
-// Falls back to the first enabled item if none found at or after idx.
+// Falls back to searching before idx if none found after. Returns idx
+// unchanged only when all items are disabled (caller must guard against this).
 func clampToEnabled(items []MenuItem, idx int) int {
 	if idx < 0 {
 		idx = 0
@@ -150,5 +151,6 @@ func clampToEnabled(items []MenuItem, idx int) int {
 			return i
 		}
 	}
+	// All items disabled — return idx; Enter/click handlers guard against this.
 	return idx
 }

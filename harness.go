@@ -73,6 +73,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	scrollContent = 0
 	footerHeight = 0
 	focusBarrier = ""
+	activeBindings = nil
 	ThemeCtx = NewContext(DefaultTheme)
 	accessibilityHints = map[string]string{}
 	currentAccessibilityLabel = ""
@@ -107,6 +108,7 @@ func (h *Harness) renderOnce() {
 	renderOffsetY = 0
 	currentTermSize = TermSize{Width: h.Width, Height: h.Height}
 	accessibilityHints = map[string]string{}
+	activeBindings = activeBindings[:0]
 	h.rec.FooterBuf = nil
 	virtual := h.rec.Render(C(h.root), h.Width, virtualHeight(h.Height))
 	footer := h.rec.FooterBuf

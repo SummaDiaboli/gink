@@ -286,7 +286,7 @@ Built-in interactive components (`NewButton`, `NewList`, `NewSelect`, `NewTable`
 
 | Field | Default | Used by |
 |---|---|---|
-| `Focused` | Bold bright-cyan | `NewButton`, `NewList`, `NewSelect`, `NewTable` highlight |
+| `Focused` | Bold bright-cyan | `NewButton`, `NewList`, `NewSelect`, `NewTable`, `NewCheckbox`, `NewRadioGroup`, `NewTabs`, `NewMultiSelect`, `NewMenu`, `NewTree` highlight |
 | `Accent` | Bold bright-blue | — (available for custom components) |
 | `Muted` | White | — |
 | `Error` | Bold bright-red | — |
@@ -485,6 +485,42 @@ func SearchBox() func() gink.Element {
 }
 ```
 
+### UseToast
+
+Provides a transient notification slot. Returns a display element to mount in your layout and a `show` function to trigger toasts from anywhere in the component.
+
+```go
+toastEl, showToast := gink.UseToast()
+
+// mount the slot somewhere visible
+gink.Box(
+    mainContent,
+    toastEl,
+)
+
+// trigger from a handler
+gink.UseInput(func(ev gink.KeyEvent) {
+    if ev.Rune == 's' {
+        save()
+        showToast("Saved!", 2*time.Second)
+    }
+})
+```
+
+The toast disappears automatically after the given duration.
+
+### UseFocusBarrier
+
+Traps Tab/Shift+Tab focus cycling within the calling component's subtree. While the barrier is active, focus cannot reach components outside that subtree. Used internally by `NewModal`.
+
+```go
+func MyModal() gink.Element {
+    gink.UseFocusBarrier()
+    // Tab/Shift+Tab now cycle only among descendants of this component
+    return gink.Border(content)
+}
+```
+
 ---
 
 ## Built-in Components
@@ -634,6 +670,118 @@ if !loading && err == nil {
 ```
 
 See `examples/imageview/` for a live demo that fetches random photos from [picsum.photos](https://picsum.photos) and refreshes on `R`.
+
+### NewCheckbox
+
+Single boolean toggle.
+
+```go
+checked, setChecked := gink.UseState(false)
+gink.C(gink.NewCheckbox("Enable notifications", checked, setChecked))
+```
+
+Renders `[ ] label` / `[x] label`. Space, Enter, or a click toggles it. Highlighted with `theme.Focused` when focused.
+
+### NewRadioGroup
+
+Vertical list of mutually exclusive options.
+
+```go
+options := []string{"Light", "Dark", "System"}
+theme, setTheme := gink.UseState("System")
+gink.C(gink.NewRadioGroup(options, theme, setTheme))
+```
+
+Renders `( ) Option` / `(●) Option`. Up/Down moves the internal cursor; Enter or a click selects. Only one option is active at a time.
+
+### NewTabs
+
+Horizontal tab strip.
+
+```go
+tabs := []string{"Overview", "Logs", "Settings"}
+active, setActive := gink.UseState("Overview")
+gink.C(gink.NewTabs(tabs, active, setActive))
+```
+
+Renders ` Overview │▶ Logs ◀│ Settings `. Left/Right arrows navigate between tabs; Enter or a click selects. The active tab is highlighted with `theme.Focused`.
+
+### NewMultiSelect
+
+Scrollable list where multiple items can be checked independently.
+
+```go
+items := []string{"Alpha", "Beta", "Gamma", "Delta"}
+sel, setSel := gink.UseState(make([]bool, len(items)))
+toggle := func(i int) {
+    next := append([]bool(nil), sel...)
+    next[i] = !next[i]
+    setSel(next)
+}
+gink.C(gink.NewMultiSelect(items, sel, toggle, 4)) // 4 visible rows
+```
+
+Renders `[ ] Item` / `[x] Item`. Space toggles the item at the cursor; Up/Down navigate. Scroll indicators (`↑`/`↓`) appear when items are hidden.
+
+### NewMenu
+
+Bordered vertical menu with keyboard shortcut hints.
+
+```go
+items := []gink.MenuItem{
+    {Label: "New",  Key: 'n'},
+    {Label: "Open", Key: 'o'},
+    {Label: "Quit", Key: 'q', Disabled: true},
+}
+gink.C(gink.NewMenu(items, func(item gink.MenuItem) {
+    handle(item)
+}, func() {
+    closeMenu()
+}))
+```
+
+Up/Down navigate (disabled items are skipped); Enter or a click selects; Esc calls `onClose`. Disabled items render with `theme.Muted`.
+
+### NewTree
+
+Hierarchical expandable/collapsible list.
+
+```go
+nodes := []gink.TreeNode{
+    {Label: "src", Children: []gink.TreeNode{
+        {Label: "main.go"},
+        {Label: "utils.go"},
+    }, Expanded: true},
+    {Label: "README.md"},
+}
+gink.C(gink.NewTree(nodes, func(node *gink.TreeNode) {
+    open(node.Label)
+}))
+```
+
+Renders `▶ /▼ ` expand/collapse indicators with indented children. Right arrow expands, Left collapses, Up/Down navigate visible nodes, Enter fires `onSelect`.
+
+### NewModal
+
+Focus-trapping dialog with a title, content, and action buttons.
+
+```go
+open, setOpen := gink.UseState(false)
+
+if open {
+    gink.C(gink.NewModal(
+        "Confirm Delete",
+        gink.Text("This cannot be undone."),
+        []gink.ModalAction{
+            {Label: "Delete", OnPress: func() { doDelete(); setOpen(false) }},
+            {Label: "Cancel", OnPress: func() { setOpen(false) }},
+        },
+        func() { setOpen(false) },
+    ))
+}
+```
+
+While the modal is mounted, Tab/Shift+Tab cycle only between the modal's own buttons — focus cannot reach components outside the modal. Esc calls `onClose`.
 
 ---
 

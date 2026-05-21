@@ -64,3 +64,12 @@
 - `NewTable` horizontal scrolling — Left/Right shifts column viewport, ◀/▶ border indicators ✓
 - `UseAccessibility` — registers screen-reader label; exposed via terminal title and `Harness.AccessibilityLabel()` ✓
 - `Image` — quadrant-block true-colour renderer (2×2px/cell), Catmull-Rom scaling, auto-height, picsum example, `NewRGBColor` helper ✓
+- `NewCheckbox` — toggle rendered as `[ ]/[x]`; Space/Enter/click toggles; theme focus highlight ✓
+- `NewRadioGroup` — `( )/(●)` vertical option list; Up/Down + Enter/click selects ✓
+- `NewTabs` — horizontal tab strip with Left/Right nav and active-tab highlight ✓
+- `NewMultiSelect` — scrollable `[ ]/[x]` list; Space toggles; Up/Down navigates ✓
+- `UseToast` — transient notification hook with auto-dismiss timer ✓
+- `NewMenu` — bordered key-hint menu; Up/Down + Enter selects; Esc closes; disabled items skipped ✓
+- `NewTree` — hierarchical `▶/▼` expand/collapse list; Right/Left/Up/Down/Enter navigation ✓
+- `NewModal` — focus-trapping dialog with title, content, and action buttons; Esc closes ✓
+- `UseFocusBarrier` — traps Tab/Shift+Tab within a component subtree (used by `NewModal`) ✓

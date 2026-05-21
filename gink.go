@@ -26,6 +26,7 @@ func Render(root Component) error {
 		clickHandlers = clickHandlers[:0]
 		pendingEffects = pendingEffects[:0]
 		focusables = focusables[:0]
+		focusBarrier = ""
 		renderOffsetX = 0
 		renderOffsetY = 0
 		accessibilityHints = map[string]string{}
@@ -79,6 +80,11 @@ func Render(root Component) error {
 				}
 				doRender()
 			}
+		}
+		prevIdx := focusedIdx
+		snapFocusToBarrier()
+		if focusedIdx != prevIdx {
+			doRender() // reflect snapped focus in components
 		}
 		focusChanged = false
 		runEffects() // always after final flush so effects see the committed UI
@@ -134,8 +140,14 @@ func Render(root Component) error {
 				}
 			case *tcell.EventKey:
 				switch ev.Key() {
-			case tcell.KeyEscape, tcell.KeyCtrlC:
+			case tcell.KeyCtrlC:
 				return nil
+			case tcell.KeyEscape:
+				if focusBarrier != "" {
+					dispatchKey(ev)
+				} else {
+					return nil
+				}
 			case tcell.KeyPgUp:
 				scrollUp(currentTermSize.Height)
 			case tcell.KeyPgDn:

@@ -14,18 +14,20 @@ func defaultClipWrite(s string) error   { return clipboard.WriteAll(s) }
 // read returns the current clipboard contents (empty string on error).
 // write sets the clipboard contents.
 //
-// To paste clipboard content on Ctrl+V, use the built-in support in
-// [NewInput] and [NewTextArea]. Use UseClipboard directly when you need
-// explicit control — for example, to copy selected text to the clipboard:
+// Unlike most gink hooks, UseClipboard is a convenience helper — it holds no
+// internal state and does not call UseState or UseEffect. It can be called at
+// the top level of a component and the returned functions used freely in
+// UseInput handlers, UseEffect callbacks, or event handlers.
 //
-//	read, write := gink.UseClipboard()
-//	gink.UseKeybinding(gink.Binding{Key: gink.KeyRune, Rune: 'y', Label: "y", Description: "Copy"}, func() {
+// [NewInput] and [NewTextArea] handle Ctrl+V paste automatically. Use
+// UseClipboard directly when you need explicit control — for example, to copy
+// content to the clipboard with a custom shortcut:
+//
+//	_, write := gink.UseClipboard()
+//	gink.UseKeybinding(gink.Binding{Rune: 'y', Label: "y", Description: "Copy"}, func() {
 //	    write(selectedText)
 //	})
 func UseClipboard() (read func() string, write func(string)) {
-	if activeCtx == nil {
-		panic("gink: UseClipboard called outside of a component render — hooks must be called at the top level of a component function")
-	}
 	read = func() string {
 		s, _ := clipRead()
 		return s

@@ -24,6 +24,7 @@ import "strings"
 func NewInput(value string, onChange func(string)) func() Element {
 	return func() Element {
 		isFocused := UseFocus()
+		clipRead, _ := UseClipboard()
 
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
@@ -36,7 +37,7 @@ func NewInput(value string, onChange func(string)) func() Element {
 					onChange(string(runes[:len(runes)-1]))
 				}
 			case KeyCtrlV:
-				text, _ := clipRead()
+				text := clipRead()
 				// Collapse newlines — single-line input cannot display them.
 				text = strings.ReplaceAll(text, "\r\n", " ")
 				text = strings.ReplaceAll(text, "\n", " ")

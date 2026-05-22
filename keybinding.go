@@ -38,7 +38,10 @@ func UseKeybinding(b Binding, handler func()) {
 	activeBindings = append(activeBindings, registeredBinding{b, handler})
 	UseKeyboard(func(ev KeyEvent) {
 		var matched bool
-		if b.Key == KeyRune {
+		// Treat Key == 0 (zero value) with a non-zero Rune as KeyRune so callers
+		// that omit Key from the struct literal still get correct rune matching.
+		isRune := b.Key == KeyRune || (b.Key == 0 && b.Rune != 0)
+		if isRune {
 			matched = ev.Key == KeyRune && ev.Rune == b.Rune
 		} else {
 			matched = ev.Key == b.Key

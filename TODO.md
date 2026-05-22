@@ -73,3 +73,7 @@
 - `NewTree` — hierarchical `▶/▼` expand/collapse list; Right/Left/Up/Down/Enter navigation ✓
 - `NewModal` — focus-trapping dialog with title, content, and action buttons; Esc closes ✓
 - `UseFocusBarrier` — traps Tab/Shift+Tab within a component subtree (used by `NewModal`) ✓
+- `UseKeybinding` — named shortcut registry; fires globally; feeds `KeybindingHelp` ✓
+- `KeybindingHelp` — renders active binding list; mount in modal or footer for `?` help overlay ✓
+- `UseClipboard` — convenience helper for system clipboard read/write via `atotto/clipboard` ✓
+- `Ctrl+V` paste — built into `NewInput` (newlines collapsed) and `NewTextArea` (multi-line preserved) ✓

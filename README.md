@@ -362,6 +362,7 @@ Registers a keyboard handler for the current render pass. Tab, Shift+Tab, Escape
 | `KeyPgUp` / `KeyPgDn` | Page Up / Down (consumed by global scroll) |
 | `KeyTab` | Tab (consumed by focus system) |
 | `KeyRune` | Printable character — read `ev.Rune` |
+| `KeyCtrlV` | Ctrl+V — paste from clipboard (handled automatically by `NewInput` / `NewTextArea`) |
 
 ### UseInterval
 
@@ -461,6 +462,35 @@ gink.UseKeyboard(func(ev gink.KeyEvent) {
 
 Unlike `UseInput`, `UseKeyboard` is not gated by focus.
 
+### UseKeybinding
+
+Registers a named keyboard shortcut — fires the handler globally (like `UseKeyboard`) and records the binding in the registry so `KeybindingHelp` can display it.
+
+```go
+gink.UseKeybinding(gink.Binding{Rune: '?', Label: "?", Description: "Show help"}, func() {
+    setShowHelp(true)
+})
+gink.UseKeybinding(gink.Binding{Key: gink.KeyEnter, Label: "Enter", Description: "Confirm"}, func() {
+    confirm()
+})
+```
+
+Set `Key` to `KeyRune` (or leave it zero) and `Rune` to the character for printable keys. Set `Key` to a special key constant for non-printable keys. `Label` and `Description` appear in `KeybindingHelp`.
+
+### UseClipboard
+
+A convenience helper (not a stateful hook) that returns read and write functions for the system clipboard. Call it at the top level of a component and use the returned functions in handlers or effects.
+
+```go
+_, write := gink.UseClipboard()
+
+gink.UseKeybinding(gink.Binding{Rune: 'y', Label: "y", Description: "Copy"}, func() {
+    write(selectedText)
+})
+```
+
+`read()` returns the current clipboard contents (empty string on error). `write(s)` sets the clipboard. Ctrl+V paste into `NewInput` and `NewTextArea` is handled automatically — use `UseClipboard` only when you need explicit control.
+
 ### UseClick
 
 ```go
@@ -545,7 +575,7 @@ name, setName := gink.UseState("")
 gink.C(gink.NewInput(name, setName))
 ```
 
-Shows a block cursor `█` when focused. Tab moves between inputs automatically.
+Shows a block cursor `█` when focused. Tab moves between inputs automatically. Ctrl+V pastes from the system clipboard (newlines are collapsed to spaces).
 
 ### NewTextArea
 
@@ -556,7 +586,7 @@ body, setBody := gink.UseState("")
 gink.C(gink.NewTextArea(body, setBody, 5)) // 5 visible rows
 ```
 
-Keys: Left/Right (within line), Up/Down (between lines), Home/End, Enter (split line), Backspace (delete/merge).
+Keys: Left/Right (within line), Up/Down (between lines), Home/End, Enter (split line), Backspace (delete/merge), Ctrl+V (paste from clipboard — multi-line content preserved).
 
 ### NewButton
 
@@ -782,6 +812,24 @@ if open {
 ```
 
 While the modal is mounted, Tab/Shift+Tab cycle only between the modal's own buttons — focus cannot reach components outside the modal. Esc calls `onClose`.
+
+### KeybindingHelp
+
+Renders a two-column list of all keybindings registered via `UseKeybinding` so far in the current render pass. Mount it inside a help modal or footer.
+
+```go
+showHelp, setShowHelp := gink.UseState(false)
+
+gink.UseKeybinding(gink.Binding{Rune: '?', Label: "?", Description: "Show help"}, func() {
+    setShowHelp(!showHelp)
+})
+
+if showHelp {
+    gink.C(gink.NewModal("Shortcuts", gink.KeybindingHelp(), nil, func() { setShowHelp(false) }))
+}
+```
+
+Call `KeybindingHelp` after all `UseKeybinding` calls (or in a component that renders after them) so the full list is visible.
 
 ---
 

@@ -30,6 +30,7 @@ func Render(root Component) error {
 		renderOffsetX = 0
 		renderOffsetY = 0
 		accessibilityHints = map[string]string{}
+		activeBindings = activeBindings[:0]
 		w, h := r.screen.Size()
 		currentTermSize = TermSize{Width: w, Height: h}
 		rec.FooterBuf = nil

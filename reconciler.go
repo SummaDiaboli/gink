@@ -13,9 +13,10 @@ type componentCache struct {
 	focusedIdx        int              // global focusedIdx at time of render
 	wasFocusedWithin  bool             // isFocusedWithinPath result at render time
 	focusablePaths    []focusable      // focusables entries added by this subtree
-	inputHandlerCache    []func(KeyEvent) // inputHandlers entries added by this subtree
-	keyboardHandlerCache []func(KeyEvent) // keyboardHandlers entries added by this subtree
-	clickHandlerCache    []clickHandler   // clickHandlers entries added by this subtree
+	inputHandlerCache    []func(KeyEvent)    // inputHandlers entries added by this subtree
+	keyboardHandlerCache []func(KeyEvent)    // keyboardHandlers entries added by this subtree
+	clickHandlerCache    []clickHandler      // clickHandlers entries added by this subtree
+	bindingCache         []registeredBinding // activeBindings entries added by this subtree
 	footerBuf         *Buffer          // non-nil when this subtree rendered a "shell" element
 }
 
@@ -121,6 +122,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			inputHandlers = append(inputHandlers, cache.inputHandlerCache...)
 			keyboardHandlers = append(keyboardHandlers, cache.keyboardHandlerCache...)
 			clickHandlers = append(clickHandlers, cache.clickHandlerCache...)
+			activeBindings = append(activeBindings, cache.bindingCache...)
 			if cache.footerBuf != nil {
 				rec.FooterBuf = cache.footerBuf
 			}
@@ -133,6 +135,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		inputsBefore := len(inputHandlers)
 		keyboardsBefore := len(keyboardHandlers)
 		clicksBefore := len(clickHandlers)
+		bindingsBefore := len(activeBindings)
 
 		activeY = y
 		activeX = x
@@ -173,6 +176,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			inputHandlerCache:    append([]func(KeyEvent){}, inputHandlers[inputsBefore:]...),
 			keyboardHandlerCache: append([]func(KeyEvent){}, keyboardHandlers[keyboardsBefore:]...),
 			clickHandlerCache:    append([]clickHandler{}, clickHandlers[clicksBefore:]...),
+			bindingCache:         append([]registeredBinding{}, activeBindings[bindingsBefore:]...),
 			cells:             make([][]Cell, h),
 			footerBuf:         rec.FooterBuf,
 		}

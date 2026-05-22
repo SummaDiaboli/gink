@@ -32,6 +32,7 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 		curCol, setCurCol := UseState(0)
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
+		clipRead, _ := UseClipboard()
 
 		lines := strings.Split(value, "\n")
 		nLines := len(lines)
@@ -150,7 +151,7 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 				}
 
 			case KeyCtrlV:
-				text, _ := clipRead()
+				text := clipRead()
 				text = strings.ReplaceAll(text, "\r\n", "\n")
 				text = strings.ReplaceAll(text, "\r", "\n")
 				pastedLines := strings.Split(text, "\n")

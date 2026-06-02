@@ -187,3 +187,96 @@ func TestScrollView_reportsFixedHeight(t *testing.T) {
 		t.Errorf("expected 'after' at row 3, got %q", h.Line(3))
 	}
 }
+
+// TestScrollView_wheelDownScrollsWhenFocused verifies that WheelDown routes to
+// a focused ScrollView and advances its internal offset rather than the global buffer.
+func TestScrollView_wheelDownScrollsWhenFocused(t *testing.T) {
+	h := gink.NewHarness(t, func() gink.Element {
+		return gink.C(gink.NewScrollView(4, makeScrollContent()))
+	})
+	defer h.Close()
+
+	h.WheelDown()
+
+	if h.Contains("line 0") {
+		t.Error("expected line 0 to scroll out of view after WheelDown")
+	}
+	if !h.Contains("line 3") {
+		t.Errorf("expected line 3 to be visible after WheelDown; lines: %v", h.Lines())
+	}
+}
+
+// TestScrollView_wheelUpScrollsWhenFocused verifies that WheelUp routes to a
+// focused ScrollView and decrements its internal offset.
+func TestScrollView_wheelUpScrollsWhenFocused(t *testing.T) {
+	h := gink.NewHarness(t, func() gink.Element {
+		return gink.C(gink.NewScrollView(4, makeScrollContent()))
+	})
+	defer h.Close()
+
+	h.WheelDown()
+	h.WheelDown()
+	h.WheelUp()
+
+	if h.Contains("line 0") {
+		t.Error("expected line 0 to remain scrolled off after WheelDown×2, WheelUp×1")
+	}
+	if !h.Contains("line 3") {
+		t.Errorf("expected line 3 to be visible; lines: %v", h.Lines())
+	}
+}
+
+// TestScrollView_pageDownScrollsWhenFocused verifies that PageDown routes to a
+// focused ScrollView and scrolls to the bottom of its content.
+func TestScrollView_pageDownScrollsWhenFocused(t *testing.T) {
+	h := gink.NewHarness(t, func() gink.Element {
+		return gink.C(gink.NewScrollView(4, makeScrollContent()))
+	})
+	defer h.Close()
+
+	h.PageDown()
+
+	if h.Contains("line 0") {
+		t.Error("expected line 0 to scroll off after PageDown")
+	}
+	if !h.Contains("line 9") {
+		t.Errorf("expected line 9 to be visible after PageDown; lines: %v", h.Lines())
+	}
+}
+
+// TestScrollView_pageUpScrollsWhenFocused verifies that PageUp routes to a
+// focused ScrollView and returns it to the top of its content.
+func TestScrollView_pageUpScrollsWhenFocused(t *testing.T) {
+	h := gink.NewHarness(t, func() gink.Element {
+		return gink.C(gink.NewScrollView(4, makeScrollContent()))
+	})
+	defer h.Close()
+
+	h.PageDown()
+	h.PageUp()
+
+	if !h.Contains("line 0") {
+		t.Errorf("expected line 0 to be visible after PageDown+PageUp; lines: %v", h.Lines())
+	}
+}
+
+// TestScrollView_wheelFallsThroughToGlobalWhenUnfocused verifies that WheelDown
+// falls through to the global scroll buffer when no ScrollView is focused.
+func TestScrollView_wheelFallsThroughToGlobalWhenUnfocused(t *testing.T) {
+	items := make([]gink.Element, 30)
+	for i := range items {
+		items[i] = gink.Text(fmt.Sprintf("Row %02d", i))
+	}
+	content := gink.Box(items...)
+	h := gink.NewHarnessSize(t, func() gink.Element { return content }, 80, 10)
+	defer h.Close()
+
+	h.WheelDown()
+
+	if h.Contains("Row 00") {
+		t.Error("expected Row 00 to scroll off the global buffer after WheelDown")
+	}
+	if !h.Contains("Row 03") {
+		t.Errorf("expected Row 03 to be visible after WheelDown; lines: %v", h.Lines())
+	}
+}

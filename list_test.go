@@ -219,6 +219,65 @@ func TestNewList_vScrollNoIndicatorsWhenAllFit(t *testing.T) {
 	}
 }
 
+// ── Scroll routing ────────────────────────────────────────────────────────────
+
+// TestNewList_wheelDownNavigatesWhenFocused verifies that WheelDown routes to a
+// focused list and advances the selection rather than scrolling the global buffer.
+func TestNewList_wheelDownNavigatesWhenFocused(t *testing.T) {
+	h, lastSel, _ := listHarness(t, 0, 3)
+	defer h.Close()
+
+	h.WheelDown()
+
+	if *lastSel != 3 {
+		t.Errorf("expected sel=3 after WheelDown, got %d", *lastSel)
+	}
+	if !h.Contains("Delta") {
+		t.Errorf("expected Delta to be visible; lines: %v", h.Lines())
+	}
+}
+
+// TestNewList_wheelUpNavigatesWhenFocused verifies that WheelUp routes to a
+// focused list and decrements the selection.
+func TestNewList_wheelUpNavigatesWhenFocused(t *testing.T) {
+	h, lastSel, _ := listHarness(t, 4, 3)
+	defer h.Close()
+
+	h.WheelUp()
+
+	if *lastSel != 1 {
+		t.Errorf("expected sel=1 after WheelUp from 4, got %d", *lastSel)
+	}
+}
+
+// TestNewList_pageDownNavigatesWhenFocused verifies that PageDown routes to a
+// focused list and advances the selection by the list's viewport height.
+func TestNewList_pageDownNavigatesWhenFocused(t *testing.T) {
+	h, lastSel, _ := listHarness(t, 0, 3)
+	defer h.Close()
+
+	h.PageDown()
+
+	// delta is capped at height=3, so selection moves from 0 to 3.
+	if *lastSel != 3 {
+		t.Errorf("expected sel=3 after PageDown, got %d", *lastSel)
+	}
+}
+
+// TestNewList_pageUpNavigatesWhenFocused verifies that PageUp routes to a
+// focused list and decrements the selection by the list's viewport height.
+func TestNewList_pageUpNavigatesWhenFocused(t *testing.T) {
+	h, lastSel, _ := listHarness(t, 4, 3)
+	defer h.Close()
+
+	h.PageUp()
+
+	// delta is capped at -height=-3, so selection moves from 4 to 1.
+	if *lastSel != 1 {
+		t.Errorf("expected sel=1 after PageUp from 4, got %d", *lastSel)
+	}
+}
+
 func TestNewList_ClickSelection(t *testing.T) {
 	// 1. With height=5 (no up/down indicators, offset=0)
 	h, lastSel, _ := listHarness(t, 0, 5)

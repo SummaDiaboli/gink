@@ -58,6 +58,30 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			end = len(rows)
 		}
 
+		registerScrollHandler(func(delta int) bool {
+			if !isFocused {
+				return false
+			}
+			move := delta
+			if height > 0 {
+				if move > height {
+					move = height
+				} else if move < -height {
+					move = -height
+				}
+			}
+			next := selected + move
+			if next < 0 {
+				next = 0
+			} else if next >= len(rows) {
+				next = len(rows) - 1
+			}
+			if next != selected {
+				onSelect(next)
+			}
+			return true
+		})
+
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
 				return

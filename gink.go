@@ -24,6 +24,7 @@ func Render(root Component) error {
 		inputHandlers = inputHandlers[:0]
 		keyboardHandlers = keyboardHandlers[:0]
 		clickHandlers = clickHandlers[:0]
+		scrollHandlers = scrollHandlers[:0]
 		pendingEffects = pendingEffects[:0]
 		focusables = focusables[:0]
 		focusBarrier = ""
@@ -129,10 +130,14 @@ func Render(root Component) error {
 			case *tcell.EventMouse:
 				switch ev.Buttons() {
 				case tcell.WheelUp:
-					scrollUp(3)
+					if !dispatchScroll(-3) {
+						scrollUp(3)
+					}
 					render()
 				case tcell.WheelDown:
-					scrollDown(3)
+					if !dispatchScroll(3) {
+						scrollDown(3)
+					}
 					render()
 				case tcell.Button1:
 					mx, my := ev.Position()
@@ -150,9 +155,13 @@ func Render(root Component) error {
 					return nil
 				}
 			case tcell.KeyPgUp:
-				scrollUp(currentTermSize.Height)
+				if !dispatchScroll(-currentTermSize.Height) {
+					scrollUp(currentTermSize.Height)
+				}
 			case tcell.KeyPgDn:
-				scrollDown(currentTermSize.Height)
+				if !dispatchScroll(currentTermSize.Height) {
+					scrollDown(currentTermSize.Height)
+				}
 			case tcell.KeyTab:
 				advanceFocus(1)
 			case tcell.KeyBacktab:

@@ -20,3 +20,4 @@ go.work.sum
 vendor/
 .aider*
 CONCEPT.md
+TODO.local.md

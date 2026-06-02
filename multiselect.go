@@ -23,18 +23,10 @@ package gink
 //	}
 //	gink.C(gink.NewMultiSelect(items, sel, toggle, 8))
 func NewMultiSelect(items []string, selected []bool, onToggle func(int), height int, styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
-		}
-
 		theme := UseTheme()
+		focusStyle := resolveStyle(explicitStyle, hasExplicitStyle, theme.Focused)
 		cursor, setCursor := UseState(0)
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
@@ -50,11 +42,8 @@ func NewMultiSelect(items []string, selected []bool, onToggle func(int), height 
 		}
 
 		// Keep cursor visible in viewport.
-		if cursor < offset {
-			offset = cursor
-			setOffset(offset)
-		} else if height > 0 && cursor >= offset+height {
-			offset = cursor - height + 1
+		if newOff := viewportOffset(cursor, offset, height); newOff != offset {
+			offset = newOff
 			setOffset(offset)
 		}
 

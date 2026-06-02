@@ -26,20 +26,12 @@ type MenuItem struct {
 //	}
 //	gink.C(gink.NewMenu(items, func(item gink.MenuItem) { handle(item) }, func() { close() }))
 func NewMenu(items []MenuItem, onSelect func(MenuItem), onClose func(), styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
-		}
-
 		cursor, setCursor := UseState(0)
 		isFocused := UseFocus()
 		theme := UseTheme()
+		focusStyle := resolveStyle(explicitStyle, hasExplicitStyle, theme.Focused)
 
 		// Clamp cursor to a valid enabled item.
 		cursor = clampToEnabled(items, cursor)

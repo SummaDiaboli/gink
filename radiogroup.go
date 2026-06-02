@@ -14,27 +14,14 @@ package gink
 //	color, setColor := gink.UseState("Red")
 //	gink.C(gink.NewRadioGroup([]string{"Red", "Green", "Blue"}, color, setColor))
 func NewRadioGroup(options []string, selected string, onChange func(string), styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
-		}
+		focusStyle := resolveStyle(explicitStyle, hasExplicitStyle, UseTheme().Focused)
 
 		isFocused := UseFocus()
 
 		// Resolve current index; default to 0 if selected is not found.
-		idx := 0
-		for i, opt := range options {
-			if opt == selected {
-				idx = i
-				break
-			}
-		}
+		idx := findIndex(options, selected)
 
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
@@ -61,16 +48,10 @@ func NewRadioGroup(options []string, selected string, onChange func(string), sty
 		rows := make([]Element, len(options))
 		for i, opt := range options {
 			glyph := "( )"
-			style := NewStyle()
 			if opt == selected {
 				glyph = "(●)"
-				if isFocused {
-					style = focusStyle
-				} else {
-					style = NewStyle().Bold()
-				}
 			}
-			rows[i] = Text(glyph+" "+opt, style)
+			rows[i] = Text(glyph+" "+opt, itemStyle(opt == selected, isFocused, focusStyle))
 		}
 		return Box(rows...)
 	}

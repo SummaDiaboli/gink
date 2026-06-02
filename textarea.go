@@ -151,9 +151,7 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 				}
 
 			case KeyCtrlV:
-				text := clipRead()
-				text = strings.ReplaceAll(text, "\r\n", "\n")
-				text = strings.ReplaceAll(text, "\r", "\n")
+				text := normalizeNewlines(clipRead(), "\n")
 				pastedLines := strings.Split(text, "\n")
 				// Merge first pasted line into current line at cursor.
 				firstPart := string(lr[:cc]) + pastedLines[0]

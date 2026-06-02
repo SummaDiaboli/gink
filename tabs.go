@@ -13,27 +13,14 @@ package gink
 //	tab, setTab := gink.UseState("Overview")
 //	gink.C(gink.NewTabs([]string{"Overview", "Details", "Logs"}, tab, setTab))
 func NewTabs(tabs []string, active string, onChange func(string), styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
-		}
+		focusStyle := resolveStyle(explicitStyle, hasExplicitStyle, UseTheme().Focused)
 
 		isFocused := UseFocus()
 
 		// Resolve current index; default to 0 if active is not found.
-		idx := 0
-		for i, tab := range tabs {
-			if tab == active {
-				idx = i
-				break
-			}
-		}
+		idx := findIndex(tabs, active)
 
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {

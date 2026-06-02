@@ -99,6 +99,44 @@ func NewRGBColor(r, g, b int32) Color {
 	return tcell.NewRGBColor(r, g, b)
 }
 
+// optionalStyle returns the first element of styles and true, or a zero Style
+// and false when styles is empty. Use it in component factories to extract the
+// optional style parameter:
+//
+//	explicitStyle, hasExplicit := optionalStyle(styles)
+func optionalStyle(styles []Style) (Style, bool) {
+	if len(styles) > 0 {
+		return styles[0], true
+	}
+	return Style{}, false
+}
+
+// resolveStyle returns explicit when hasExplicit is true, otherwise fallback.
+// Pair with [optionalStyle] to implement the optional focus-style override that
+// most interactive components expose:
+//
+//	focusStyle := resolveStyle(explicitStyle, hasExplicit, theme.Focused)
+func resolveStyle(explicit Style, hasExplicit bool, fallback Style) Style {
+	if hasExplicit {
+		return explicit
+	}
+	return fallback
+}
+
+// itemStyle returns the style for a list or table row.
+// When the row is not selected it returns the zero style. When selected and
+// focused it returns focusStyle; when selected but unfocused it returns Bold so
+// the selection remains visible without implying interactivity.
+func itemStyle(selected, focused bool, focusStyle Style) Style {
+	if !selected {
+		return NewStyle()
+	}
+	if focused {
+		return focusStyle
+	}
+	return NewStyle().Bold()
+}
+
 // TextProps holds the content and style for a text element.
 // Used internally by the reconciler; not part of the public API.
 type TextProps struct {

@@ -8,6 +8,14 @@ import (
 	"sync"
 )
 
+const (
+	pluginMsgRender  = "render"
+	pluginMsgUnmount = "unmount"
+	pluginMsgElement = "element"
+	pluginMsgInput   = "input"
+	pluginKeyRune    = "rune"
+)
+
 var pluginErrorStyle = NewStyle().Foreground(ColorBrightRed)
 
 // pluginConn guards subprocess stdin behind a mutex so the render goroutine
@@ -90,17 +98,19 @@ func NewPluginCmd(cmd *exec.Cmd) func() Element {
 					if json.Unmarshal(scanner.Bytes(), &env) != nil {
 						continue
 					}
-					if env.Type == "element" && len(env.Tree) > 0 {
+					if env.Type == pluginMsgElement && len(env.Tree) > 0 {
 						el := parsePluginElement(env.Tree)
 						setTree(&el)
 					}
 				}
 			}()
 
-			c.send(`{"type":"render"}`)
+			renderMsg, _ := json.Marshal(map[string]any{"type": pluginMsgRender})
+			c.send(string(renderMsg))
 
 			return func() {
-				c.send(`{"type":"unmount"}`)
+				unmountMsg, _ := json.Marshal(map[string]any{"type": pluginMsgUnmount})
+				c.send(string(unmountMsg))
 				c.close()
 				cmd.Wait() //nolint:errcheck
 			}
@@ -114,13 +124,13 @@ func NewPluginCmd(cmd *exec.Cmd) func() Element {
 			var msg []byte
 			if ev.Key == KeyRune {
 				msg, _ = json.Marshal(map[string]any{
-					"type": "input",
-					"key":  "rune",
+					"type": pluginMsgInput,
+					"key":  pluginKeyRune,
 					"rune": string(ev.Rune),
 				})
 			} else if name := pluginKeyName(ev); name != "" {
 				msg, _ = json.Marshal(map[string]any{
-					"type": "input",
+					"type": pluginMsgInput,
 					"key":  name,
 				})
 			}
@@ -233,39 +243,27 @@ func parsePluginStyle(s *pluginStyleJSON) Style {
 	return style
 }
 
+var pluginColorMap = map[string]Color{
+	"black":         ColorBlack,
+	"red":           ColorRed,
+	"green":         ColorGreen,
+	"yellow":        ColorYellow,
+	"blue":          ColorBlue,
+	"magenta":       ColorMagenta,
+	"cyan":          ColorCyan,
+	"white":         ColorWhite,
+	"brightRed":     ColorBrightRed,
+	"brightGreen":   ColorBrightGreen,
+	"brightYellow":  ColorBrightYellow,
+	"brightBlue":    ColorBrightBlue,
+	"brightMagenta": ColorBrightMagenta,
+	"brightCyan":    ColorBrightCyan,
+	"brightWhite":   ColorBrightWhite,
+}
+
 func parsePluginColor(name string) Color {
-	switch name {
-	case "black":
-		return ColorBlack
-	case "red":
-		return ColorRed
-	case "green":
-		return ColorGreen
-	case "yellow":
-		return ColorYellow
-	case "blue":
-		return ColorBlue
-	case "magenta":
-		return ColorMagenta
-	case "cyan":
-		return ColorCyan
-	case "white":
-		return ColorWhite
-	case "brightRed":
-		return ColorBrightRed
-	case "brightGreen":
-		return ColorBrightGreen
-	case "brightYellow":
-		return ColorBrightYellow
-	case "brightBlue":
-		return ColorBrightBlue
-	case "brightMagenta":
-		return ColorBrightMagenta
-	case "brightCyan":
-		return ColorBrightCyan
-	case "brightWhite":
-		return ColorBrightWhite
-	default:
-		return ColorDefault
+	if c, ok := pluginColorMap[name]; ok {
+		return c
 	}
+	return ColorDefault
 }

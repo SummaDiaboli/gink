@@ -12,14 +12,17 @@ var scrollContent int
 // Subtracted from the terminal height when computing scroll bounds.
 var footerHeight int
 
+// virtualBufferHeight is the minimum height of the virtual render buffer —
+// a generous upper bound for any practical TUI app.
+const virtualBufferHeight = 512
+
 // virtualHeight returns the height of the virtual render buffer. It is large
-// enough to hold content that exceeds the visible terminal height — 512 rows
-// is a generous upper bound for any practical TUI app.
+// enough to hold content that exceeds the visible terminal height.
 func virtualHeight(termH int) int {
-	if termH > 512 {
+	if termH > virtualBufferHeight {
 		return termH
 	}
-	return 512
+	return virtualBufferHeight
 }
 
 // detectContentHeight returns the row index of the last non-blank row plus one,

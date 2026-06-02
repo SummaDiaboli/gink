@@ -45,11 +45,15 @@ func NewRadioGroup(options []string, selected string, onChange func(string), sty
 			}
 		})
 
+		const (
+			radioUnchecked = "( )"
+			radioChecked   = "(●)"
+		)
 		rows := make([]Element, len(options))
 		for i, opt := range options {
-			glyph := "( )"
+			glyph := radioUnchecked
 			if opt == selected {
-				glyph = "(●)"
+				glyph = radioChecked
 			}
 			rows[i] = Text(glyph+" "+opt, itemStyle(opt == selected, isFocused, focusStyle))
 		}

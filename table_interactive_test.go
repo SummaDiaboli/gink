@@ -377,3 +377,35 @@ func TestNewTable_hScrollLeftIndicator(t *testing.T) {
 		t.Errorf("top border should contain ◀ after scrolling right; line 0: %q", h.Line(0))
 	}
 }
+
+// ── Scroll routing ────────────────────────────────────────────────────────────
+
+// TestNewTable_wheelDownAdvancesSelectionWhenFocused verifies that WheelDown
+// routes to a focused table and advances the selection rather than scrolling
+// the global buffer.
+func TestNewTable_wheelDownAdvancesSelectionWhenFocused(t *testing.T) {
+	h, lastSel := tableHarness(t, 0, 3)
+	defer h.Close()
+
+	h.WheelDown()
+
+	if *lastSel != 3 {
+		t.Errorf("expected sel=3 after WheelDown, got %d", *lastSel)
+	}
+	if !h.Contains("delta") {
+		t.Errorf("expected delta to be visible after WheelDown; lines: %v", h.Lines())
+	}
+}
+
+// TestNewTable_wheelUpDecrementsSelectionWhenFocused verifies that WheelUp
+// routes to a focused table and decrements the selection.
+func TestNewTable_wheelUpDecrementsSelectionWhenFocused(t *testing.T) {
+	h, lastSel := tableHarness(t, 4, 3)
+	defer h.Close()
+
+	h.WheelUp()
+
+	if *lastSel != 1 {
+		t.Errorf("expected sel=1 after WheelUp from 4, got %d", *lastSel)
+	}
+}

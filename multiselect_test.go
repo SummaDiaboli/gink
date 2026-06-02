@@ -225,3 +225,38 @@ func TestNewMultiSelect_clickTogglesItem(t *testing.T) {
 		t.Error("clicking row 1 should toggle Bravo")
 	}
 }
+
+// ── Scroll routing ────────────────────────────────────────────────────────────
+
+// TestNewMultiSelect_wheelDownMovesCursorWhenFocused verifies that WheelDown
+// routes to a focused MultiSelect and advances the cursor rather than scrolling
+// the global buffer.
+func TestNewMultiSelect_wheelDownMovesCursorWhenFocused(t *testing.T) {
+	h, _, _ := multiHarness(t, noneSelected(5), 3)
+	defer h.Close()
+
+	h.WheelDown()
+
+	// cursor=3 → viewport scrolls: Alpha gone, Delta visible
+	if h.Contains("Alpha") {
+		t.Error("expected Alpha to scroll out of view after WheelDown")
+	}
+	if !h.Contains("Delta") {
+		t.Errorf("expected Delta to be visible after WheelDown; lines: %v", h.Lines())
+	}
+}
+
+// TestNewMultiSelect_wheelUpMovesCursorWhenFocused verifies that WheelUp routes
+// to a focused MultiSelect and decrements the cursor.
+func TestNewMultiSelect_wheelUpMovesCursorWhenFocused(t *testing.T) {
+	h, _, _ := multiHarness(t, noneSelected(5), 3)
+	defer h.Close()
+
+	h.WheelDown() // cursor → 3
+	h.WheelUp()   // cursor → 0
+
+	// cursor back at 0 → viewport scrolls back: Alpha visible
+	if !h.Contains("Alpha") {
+		t.Errorf("expected Alpha to be visible after WheelDown+WheelUp; lines: %v", h.Lines())
+	}
+}

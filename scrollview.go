@@ -24,6 +24,18 @@ func NewScrollView(height int, child Element) func() Element {
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
 
+		registerScrollHandler(func(delta int) bool {
+			if !isFocused {
+				return false
+			}
+			newOffset := offset + delta
+			if newOffset < 0 {
+				newOffset = 0
+			}
+			setOffset(newOffset) // reconciler clamps at content bottom
+			return true
+		})
+
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
 				return

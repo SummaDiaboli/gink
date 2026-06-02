@@ -66,6 +66,30 @@ func NewMultiSelect(items []string, selected []bool, onToggle func(int), height 
 		hasAbove := offset > 0
 		hasBelow := end < len(items)
 
+		registerScrollHandler(func(delta int) bool {
+			if !isFocused {
+				return false
+			}
+			move := delta
+			if height > 0 {
+				if move > height {
+					move = height
+				} else if move < -height {
+					move = -height
+				}
+			}
+			next := cursor + move
+			if next < 0 {
+				next = 0
+			} else if next >= len(items) {
+				next = len(items) - 1
+			}
+			if next != cursor {
+				setCursor(next)
+			}
+			return true
+		})
+
 		UseInput(func(ev KeyEvent) {
 			if !isFocused {
 				return

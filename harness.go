@@ -74,6 +74,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	footerHeight = 0
 	focusBarrier = ""
 	activeBindings = nil
+	scrollHandlers = nil
 	ThemeCtx = NewContext(DefaultTheme)
 	accessibilityHints = map[string]string{}
 	currentAccessibilityLabel = ""
@@ -101,6 +102,7 @@ func (h *Harness) renderOnce() {
 	inputHandlers = inputHandlers[:0]
 	keyboardHandlers = keyboardHandlers[:0]
 	clickHandlers = clickHandlers[:0]
+	scrollHandlers = scrollHandlers[:0]
 	pendingEffects = pendingEffects[:0]
 	focusables = focusables[:0]
 	focusBarrier = ""
@@ -172,16 +174,46 @@ func (h *Harness) Render() {
 }
 
 // PageDown scrolls the viewport down by one screen height and re-renders.
+// If a focused [NewScrollView] is registered it receives the event first;
+// only when no handler consumes it does the global scroll buffer move.
 func (h *Harness) PageDown() {
 	h.t.Helper()
-	scrollDown(h.Height)
+	if !dispatchScroll(h.Height) {
+		scrollDown(h.Height)
+	}
 	h.Render()
 }
 
 // PageUp scrolls the viewport up by one screen height and re-renders.
+// If a focused [NewScrollView] is registered it receives the event first;
+// only when no handler consumes it does the global scroll buffer move.
 func (h *Harness) PageUp() {
 	h.t.Helper()
-	scrollUp(h.Height)
+	if !dispatchScroll(-h.Height) {
+		scrollUp(h.Height)
+	}
+	h.Render()
+}
+
+// WheelDown simulates a mouse wheel-down event (3 rows) and re-renders.
+// If a focused [NewScrollView] is registered it receives the event first;
+// only when no handler consumes it does the global scroll buffer move.
+func (h *Harness) WheelDown() {
+	h.t.Helper()
+	if !dispatchScroll(3) {
+		scrollDown(3)
+	}
+	h.Render()
+}
+
+// WheelUp simulates a mouse wheel-up event (3 rows) and re-renders.
+// If a focused [NewScrollView] is registered it receives the event first;
+// only when no handler consumes it does the global scroll buffer move.
+func (h *Harness) WheelUp() {
+	h.t.Helper()
+	if !dispatchScroll(-3) {
+		scrollUp(3)
+	}
 	h.Render()
 }
 

@@ -59,24 +59,11 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 		hasAbove := offset > 0
 		hasBelow := end < len(items)
 
-		registerScrollHandler(func(delta int) bool {
+		UseScroll(func(delta int) bool {
 			if !isFocused {
 				return false
 			}
-			move := delta
-			if height > 0 {
-				if move > height {
-					move = height
-				} else if move < -height {
-					move = -height
-				}
-			}
-			next := selected + move
-			if next < 0 {
-				next = 0
-			} else if next >= len(items) {
-				next = len(items) - 1
-			}
+			next := clampIndex(selected+clampDelta(delta, height), len(items))
 			if next != selected {
 				onSelect(next)
 			}

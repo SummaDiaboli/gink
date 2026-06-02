@@ -173,49 +173,39 @@ func (h *Harness) Render() {
 	}
 }
 
-// PageDown scrolls the viewport down by one screen height and re-renders.
-// If a focused [NewScrollView] is registered it receives the event first;
-// only when no handler consumes it does the global scroll buffer move.
-func (h *Harness) PageDown() {
+// doScroll dispatches a scroll event: focused handlers get first pick;
+// only when none consume it does the global buffer move.
+func (h *Harness) doScroll(delta int) {
 	h.t.Helper()
-	if !dispatchScroll(h.Height) {
-		scrollDown(h.Height)
+	if !dispatchScroll(delta) {
+		if delta > 0 {
+			scrollDown(delta)
+		} else {
+			scrollUp(-delta)
+		}
 	}
 	h.Render()
 }
+
+// PageDown scrolls the viewport down by one screen height and re-renders.
+// A focused scrollable component receives the event first; only when none
+// consumes it does the global scroll buffer move.
+func (h *Harness) PageDown() { h.t.Helper(); h.doScroll(h.Height) }
 
 // PageUp scrolls the viewport up by one screen height and re-renders.
-// If a focused [NewScrollView] is registered it receives the event first;
-// only when no handler consumes it does the global scroll buffer move.
-func (h *Harness) PageUp() {
-	h.t.Helper()
-	if !dispatchScroll(-h.Height) {
-		scrollUp(h.Height)
-	}
-	h.Render()
-}
+// A focused scrollable component receives the event first; only when none
+// consumes it does the global scroll buffer move.
+func (h *Harness) PageUp() { h.t.Helper(); h.doScroll(-h.Height) }
 
-// WheelDown simulates a mouse wheel-down event (3 rows) and re-renders.
-// If a focused [NewScrollView] is registered it receives the event first;
-// only when no handler consumes it does the global scroll buffer move.
-func (h *Harness) WheelDown() {
-	h.t.Helper()
-	if !dispatchScroll(3) {
-		scrollDown(3)
-	}
-	h.Render()
-}
+// WheelDown simulates a mouse wheel-down event and re-renders.
+// A focused scrollable component receives the event first; only when none
+// consumes it does the global scroll buffer move.
+func (h *Harness) WheelDown() { h.t.Helper(); h.doScroll(wheelDelta) }
 
-// WheelUp simulates a mouse wheel-up event (3 rows) and re-renders.
-// If a focused [NewScrollView] is registered it receives the event first;
-// only when no handler consumes it does the global scroll buffer move.
-func (h *Harness) WheelUp() {
-	h.t.Helper()
-	if !dispatchScroll(-3) {
-		scrollUp(3)
-	}
-	h.Render()
-}
+// WheelUp simulates a mouse wheel-up event and re-renders.
+// A focused scrollable component receives the event first; only when none
+// consumes it does the global scroll buffer move.
+func (h *Harness) WheelUp() { h.t.Helper(); h.doScroll(-wheelDelta) }
 
 // Lines returns the buffer contents as a slice of strings, one per terminal
 // row, with trailing spaces trimmed. The slice length equals Harness.Height.

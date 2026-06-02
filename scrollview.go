@@ -24,7 +24,7 @@ func NewScrollView(height int, child Element) func() Element {
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
 
-		registerScrollHandler(func(delta int) bool {
+		UseScroll(func(delta int) bool {
 			if !isFocused {
 				return false
 			}

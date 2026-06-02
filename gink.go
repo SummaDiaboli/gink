@@ -130,13 +130,13 @@ func Render(root Component) error {
 			case *tcell.EventMouse:
 				switch ev.Buttons() {
 				case tcell.WheelUp:
-					if !dispatchScroll(-3) {
-						scrollUp(3)
+					if !dispatchScroll(-wheelDelta) {
+						scrollUp(wheelDelta)
 					}
 					render()
 				case tcell.WheelDown:
-					if !dispatchScroll(3) {
-						scrollDown(3)
+					if !dispatchScroll(wheelDelta) {
+						scrollDown(wheelDelta)
 					}
 					render()
 				case tcell.Button1:

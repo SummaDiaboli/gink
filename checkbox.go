@@ -13,16 +13,9 @@ package gink
 //	checked, setChecked := gink.UseState(false)
 //	gink.C(gink.NewCheckbox("Enable notifications", checked, func(v bool) { setChecked(v) }))
 func NewCheckbox(label string, checked bool, onChange func(bool), styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
-		}
+		focusStyle := resolveStyle(explicitStyle, hasExplicitStyle, UseTheme().Focused)
 
 		isFocused := UseFocus()
 

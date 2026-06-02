@@ -1,6 +1,10 @@
 package gink
 
-import "github.com/atotto/clipboard"
+import (
+	"strings"
+
+	"github.com/atotto/clipboard"
+)
 
 // clipRead and clipWrite are the active clipboard backend functions.
 // Swappable in tests without touching the system clipboard.
@@ -27,6 +31,18 @@ func defaultClipWrite(s string) error   { return clipboard.WriteAll(s) }
 //	gink.UseKeybinding(gink.Binding{Rune: 'y', Label: "y", Description: "Copy"}, func() {
 //	    write(selectedText)
 //	})
+// normalizeNewlines replaces all line-ending sequences (\r\n, \n, \r) in s
+// with replacement. Call it on pasted text before inserting into a component:
+//
+//	text = normalizeNewlines(text, "\n")  // textarea: keep as newlines
+//	text = normalizeNewlines(text, " ")   // textinput: collapse to spaces
+func normalizeNewlines(s, replacement string) string {
+	s = strings.ReplaceAll(s, "\r\n", replacement)
+	s = strings.ReplaceAll(s, "\n", replacement)
+	s = strings.ReplaceAll(s, "\r", replacement)
+	return s
+}
+
 func UseClipboard() (read func() string, write func(string)) {
 	read = func() string {
 		s, _ := clipRead()

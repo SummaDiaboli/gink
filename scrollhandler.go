@@ -55,3 +55,27 @@ func clampIndex(idx, n int) int {
 	}
 	return idx
 }
+
+// viewportOffset returns the viewport start offset that keeps idx visible
+// within a page of size height. Returns offset unchanged when idx is already
+// in view.
+func viewportOffset(idx, offset, height int) int {
+	if idx < offset {
+		return idx
+	}
+	if height > 0 && idx >= offset+height {
+		return idx - height + 1
+	}
+	return offset
+}
+
+// findIndex returns the index of the first element in items equal to value,
+// or 0 if value is not found.
+func findIndex(items []string, value string) int {
+	for i, s := range items {
+		if s == value {
+			return i
+		}
+	}
+	return 0
+}

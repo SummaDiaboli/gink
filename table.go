@@ -17,16 +17,9 @@ import "strings"
 //	sel, setSel := gink.UseState(0)
 //	gink.C(gink.NewTable(cols, rows, sel, setSel, 8))
 func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), height int, styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 	return func() Element {
-		focusStyle := explicitStyle
-		if !hasExplicitStyle {
-			focusStyle = UseTheme().Focused
-		}
+		focusStyle := resolveStyle(explicitStyle, hasExplicitStyle, UseTheme().Focused)
 
 		offset, setOffset := UseState(0)
 		colOffset, setColOffset := UseState(0)
@@ -47,11 +40,7 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 		}
 
 		// Keep selected row visible — silent clamp, no extra render needed.
-		if selected < offset {
-			offset = selected
-		} else if height > 0 && selected >= offset+height {
-			offset = selected - height + 1
-		}
+		offset = viewportOffset(selected, offset, height)
 
 		end := offset + height
 		if end > len(rows) {
@@ -130,7 +119,6 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 
 		for i, row := range rows[offset:end] {
 			actualIdx := offset + i
-			style := NewStyle()
 			visRow := make([]string, colEnd-colStart)
 			for j := range visRow {
 				if colStart+j < len(row) {
@@ -140,13 +128,8 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 			runes := []rune(tableFormatRow(visRow, visWidths))
 			if actualIdx == selected {
 				runes[0] = '▶'
-				if isFocused {
-					style = focusStyle
-				} else {
-					style = NewStyle().Bold()
-				}
 			}
-			lines = append(lines, Text(string(runes), style))
+			lines = append(lines, Text(string(runes), itemStyle(actualIdx == selected, isFocused, focusStyle)))
 		}
 
 		lines = append(lines, Text(tableBorderBot(visWidths, end < len(rows))))

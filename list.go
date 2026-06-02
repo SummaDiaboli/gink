@@ -26,28 +26,18 @@ package gink
 //	    gink.Text(items[sel]),
 //	)
 func NewList(items []string, selected int, onSelect func(int), height int, styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 	return func() Element {
 		theme := UseTheme()
-		focusStyle := theme.Focused
-		if hasExplicitStyle {
-			focusStyle = explicitStyle
-		}
+		focusStyle := resolveStyle(explicitStyle, hasExplicitStyle, theme.Focused)
 
 		offset, setOffset := UseState(0)
 		isFocused := UseFocus()
 
 		// Keep selected visible. Persist via setOffset so the viewport stays
 		// stable across renders (e.g. after an external selection change).
-		if selected < offset {
-			offset = selected
-			setOffset(offset)
-		} else if height > 0 && selected >= offset+height {
-			offset = selected - height + 1
+		if newOff := viewportOffset(selected, offset, height); newOff != offset {
+			offset = newOff
 			setOffset(offset)
 		}
 
@@ -114,16 +104,10 @@ func NewList(items []string, selected int, onSelect func(int), height int, style
 		for i, item := range items[offset:end] {
 			actualIdx := offset + i
 			cursor := "  "
-			style := NewStyle()
 			if actualIdx == selected {
 				cursor = "▶ "
-				if isFocused {
-					style = focusStyle
-				} else {
-					style = NewStyle().Bold()
-				}
 			}
-			rows = append(rows, Text(cursor+item, style))
+			rows = append(rows, Text(cursor+item, itemStyle(actualIdx == selected, isFocused, focusStyle)))
 		}
 		if hasBelow {
 			rows = append(rows, Text("  ↓", theme.Muted))

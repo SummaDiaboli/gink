@@ -34,9 +34,13 @@ func NewCheckbox(label string, checked bool, onChange func(bool), styles ...Styl
 			toggle()
 		})
 
-		glyph := "[ ]"
+		const (
+			checkboxUnchecked = "[ ]"
+			checkboxChecked   = "[x]"
+		)
+		glyph := checkboxUnchecked
 		if checked {
-			glyph = "[x]"
+			glyph = checkboxChecked
 		}
 
 		style := NewStyle()

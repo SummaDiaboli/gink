@@ -106,18 +106,23 @@ func NewTree(nodes []TreeNode, onSelect func(*TreeNode), styles ...Style) func()
 			}
 		})
 
+		const (
+			treeExpanded  = "▼ "
+			treeCollapsed = "▶ "
+			treeLeaf      = "  "
+		)
 		rows := make([]Element, len(visible))
 		for i, fn := range visible {
 			indent := strings.Repeat("  ", fn.depth)
 			var prefix string
 			if len(fn.node.Children) > 0 {
 				if fn.node.Expanded {
-					prefix = "▼ "
+					prefix = treeExpanded
 				} else {
-					prefix = "▶ "
+					prefix = treeCollapsed
 				}
 			} else {
-				prefix = "  "
+				prefix = treeLeaf
 			}
 			style := NewStyle()
 			if i == cursor && isFocused {

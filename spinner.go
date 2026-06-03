@@ -2,6 +2,9 @@ package gink
 
 import "time"
 
+// spinnerFrameInterval is the delay between animation frames.
+const spinnerFrameInterval = 80 * time.Millisecond
+
 // spinnerFrames is the braille animation sequence. Each frame is one Unicode character.
 var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 
@@ -19,7 +22,7 @@ var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "�
 //	}
 func Spinner() Element {
 	frame, setFrame := UseState(0)
-	UseInterval(80*time.Millisecond, func() {
+	UseInterval(spinnerFrameInterval, func() {
 		setFrame((frame + 1) % len(spinnerFrames))
 	})
 	return Text(spinnerFrames[frame])
@@ -33,7 +36,7 @@ func Spinner() Element {
 func SpinnerWithStyle(style Style) func() Element {
 	return func() Element {
 		frame, setFrame := UseState(0)
-		UseInterval(80*time.Millisecond, func() {
+		UseInterval(spinnerFrameInterval, func() {
 			setFrame((frame + 1) % len(spinnerFrames))
 		})
 		return Text(spinnerFrames[frame], style)

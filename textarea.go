@@ -16,17 +16,10 @@ import "strings"
 //	text, setText := gink.UseState("")
 //	gink.C(gink.NewTextArea(text, setText, 5))
 func NewTextArea(value string, onChange func(string), height int, styles ...Style) func() Element {
-	hasExplicitStyle := len(styles) > 0
-	explicitStyle := Style{}
-	if hasExplicitStyle {
-		explicitStyle = styles[0]
-	}
+	explicitStyle, hasExplicitStyle := optionalStyle(styles)
 
 	return func() Element {
-		cursorStyle := explicitStyle
-		if !hasExplicitStyle {
-			cursorStyle = UseTheme().Cursor
-		}
+		cursorStyle := resolveStyle(explicitStyle, hasExplicitStyle, UseTheme().Cursor)
 
 		curLine, setCurLine := UseState(0)
 		curCol, setCurCol := UseState(0)

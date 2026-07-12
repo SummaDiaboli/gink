@@ -68,7 +68,7 @@ func NewSelect(options []string, value string, onChange func(string), styles ...
 		})
 
 		if !isFocused {
-			return Text("[ " + value + " ]")
+			return Text(bracketed(value))
 		}
 		return Text("[ ◀ "+value+" ▶ ]", focusStyle)
 	}

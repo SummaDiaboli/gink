@@ -32,14 +32,7 @@ func NewMultiSelect(items []string, selected []bool, onToggle func(int), height 
 		isFocused := UseFocus()
 
 		// Clamp cursor to valid range when items shrink externally.
-		if cursor >= len(items) {
-			cursor = len(items) - 1
-			setCursor(cursor)
-		}
-		if cursor < 0 {
-			cursor = 0
-			setCursor(cursor)
-		}
+		cursor = clampCursor(cursor, len(items), setCursor)
 
 		// Keep cursor visible in viewport.
 		if newOff := viewportOffset(cursor, offset, height); newOff != offset {

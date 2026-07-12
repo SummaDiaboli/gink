@@ -238,10 +238,7 @@ func tableBorderTop(widths []int) string {
 // tableBorderTopScroll builds the top border, replacing corners with ◀/▶ when
 // columns are hidden to the left or right respectively.
 func tableBorderTopScroll(widths []int, hasLeft, hasRight bool) string {
-	segs := make([]string, len(widths))
-	for i, w := range widths {
-		segs[i] = strings.Repeat("─", w+2)
-	}
+	segs := tableBorderSegs(widths)
 	left, right := "┌", "┐"
 	if hasLeft {
 		left = "◀"
@@ -294,10 +291,7 @@ func tableRowWidth(widths []int, start, end int) int {
 // tableBorderMid builds the header-separator border, replacing the right corner
 // with ↑ when rows are hidden above the current viewport.
 func tableBorderMid(widths []int, hasAbove bool) string {
-	segs := make([]string, len(widths))
-	for i, w := range widths {
-		segs[i] = strings.Repeat("─", w+2)
-	}
+	segs := tableBorderSegs(widths)
 	right := "┤"
 	if hasAbove {
 		right = "↑"
@@ -308,15 +302,22 @@ func tableBorderMid(widths []int, hasAbove bool) string {
 // tableBorderBot builds the bottom border, replacing the right corner with ↓
 // when rows are hidden below the current viewport.
 func tableBorderBot(widths []int, hasBelow bool) string {
-	segs := make([]string, len(widths))
-	for i, w := range widths {
-		segs[i] = strings.Repeat("─", w+2)
-	}
+	segs := tableBorderSegs(widths)
 	right := "┘"
 	if hasBelow {
 		right = "↓"
 	}
 	return "└" + strings.Join(segs, "┴") + right
+}
+
+// tableBorderSegs builds one "─" run per column, sized to content+padding,
+// for use by the table border builders.
+func tableBorderSegs(widths []int) []string {
+	segs := make([]string, len(widths))
+	for i, w := range widths {
+		segs[i] = strings.Repeat("─", w+2)
+	}
+	return segs
 }
 
 // tableTruncate clips s to maxWidth runes, replacing the last rune with "…" when

@@ -148,6 +148,11 @@ func focusedStyle(active bool, focusStyle Style) Style {
 	return NewStyle()
 }
 
+// bracketed wraps s as "[ s ]", the package's standard inline-label framing.
+func bracketed(s string) string {
+	return "[ " + s + " ]"
+}
+
 // TextProps holds the content and style for a text element.
 // Used internally by the reconciler; not part of the public API.
 type TextProps struct {

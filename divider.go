@@ -7,8 +7,12 @@ import "strings"
 //
 //	gink.C(gink.Divider)
 func Divider() Element {
-	size := UseTermSize()
-	return Text(strings.Repeat("─", size.Width))
+	return Text(dividerLine())
+}
+
+// dividerLine builds a full-width "─" rule sized to the current terminal.
+func dividerLine() string {
+	return strings.Repeat("─", UseTermSize().Width)
 }
 
 // DividerStyled returns a Divider component rendered with the given style.
@@ -17,8 +21,7 @@ func Divider() Element {
 //	gink.C(gink.DividerStyled(gink.NewStyle().Foreground(gink.ColorBrightBlack)))
 func DividerStyled(style Style) func() Element {
 	return func() Element {
-		size := UseTermSize()
-		return Text(strings.Repeat("─", size.Width), style)
+		return Text(dividerLine(), style)
 	}
 }
 
@@ -30,10 +33,7 @@ func DividerStyled(style Style) func() Element {
 func DividerWithLabel(label string, styles ...Style) func() Element {
 	return func() Element {
 		size := UseTermSize()
-		var style Style
-		if len(styles) > 0 {
-			style = styles[0]
-		}
+		style, _ := optionalStyle(styles)
 		inner := " " + label + " "
 		dashes := size.Width - len([]rune(inner))
 		if dashes < 2 {

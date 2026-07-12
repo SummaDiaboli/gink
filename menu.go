@@ -38,20 +38,12 @@ func NewMenu(items []MenuItem, onSelect func(MenuItem), onClose func(), styles .
 
 		// prevEnabled / nextEnabled skip over disabled items.
 		prevEnabled := func(from int) int {
-			for i := from - 1; i >= 0; i-- {
-				if !items[i].Disabled {
-					return i
-				}
-			}
-			return from
+			idx, _ := scanEnabled(items, from, -1)
+			return idx
 		}
 		nextEnabled := func(from int) int {
-			for i := from + 1; i < len(items); i++ {
-				if !items[i].Disabled {
-					return i
-				}
-			}
-			return from
+			idx, _ := scanEnabled(items, from, 1)
+			return idx
 		}
 
 		UseInput(func(ev KeyEvent) {
@@ -133,16 +125,23 @@ func clampToEnabled(items []MenuItem, idx int) int {
 	if !items[idx].Disabled {
 		return idx
 	}
-	for i := idx + 1; i < len(items); i++ {
-		if !items[i].Disabled {
-			return i
-		}
+	if next, ok := scanEnabled(items, idx, 1); ok {
+		return next
 	}
-	for i := idx - 1; i >= 0; i-- {
-		if !items[i].Disabled {
-			return i
-		}
+	if prev, ok := scanEnabled(items, idx, -1); ok {
+		return prev
 	}
 	// All items disabled — return idx; Enter/click handlers guard against this.
 	return idx
+}
+
+// scanEnabled scans items from (from+step) in the given direction (±1),
+// returning the first enabled index found, or (from, false) if none.
+func scanEnabled(items []MenuItem, from, step int) (int, bool) {
+	for i := from + step; i >= 0 && i < len(items); i += step {
+		if !items[i].Disabled {
+			return i, true
+		}
+	}
+	return from, false
 }

@@ -62,13 +62,7 @@ func NewTree(nodes []TreeNode, onSelect func(*TreeNode), styles ...Style) func()
 		visible := flattenTree(nodes, 0)
 
 		// Clamp cursor in case the tree shrinks (e.g. after a collapse).
-		if cursor >= len(visible) {
-			cursor = len(visible) - 1
-			setCursor(cursor)
-		}
-		if cursor < 0 {
-			cursor = 0
-		}
+		cursor = clampCursor(cursor, len(visible), setCursor)
 
 		UseInput(func(ev KeyEvent) {
 			if !isFocused || len(visible) == 0 {

@@ -124,10 +124,7 @@ func NewTree(nodes []TreeNode, onSelect func(*TreeNode), styles ...Style) func()
 			} else {
 				prefix = treeLeaf
 			}
-			style := NewStyle()
-			if i == cursor && isFocused {
-				style = focusStyle
-			}
+			style := focusedStyle(i == cursor && isFocused, focusStyle)
 			rows[i] = Text(indent+prefix+fn.node.Label, style)
 		}
 		return Box(rows...)

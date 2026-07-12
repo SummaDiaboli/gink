@@ -20,12 +20,18 @@ var spinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "�
 //	if loading {
 //	    return gink.Row(gink.C(gink.Spinner), gink.Text(" Loading..."))
 //	}
-func Spinner() Element {
+// useSpinnerFrame advances the spinner's animation state and returns the
+// current frame glyph.
+func useSpinnerFrame() string {
 	frame, setFrame := UseState(0)
 	UseInterval(spinnerFrameInterval, func() {
 		setFrame((frame + 1) % len(spinnerFrames))
 	})
-	return Text(spinnerFrames[frame])
+	return spinnerFrames[frame]
+}
+
+func Spinner() Element {
+	return Text(useSpinnerFrame())
 }
 
 // SpinnerWithStyle returns a Spinner component rendered with the given style.
@@ -35,10 +41,6 @@ func Spinner() Element {
 //	gink.C(gink.SpinnerWithStyle(gink.NewStyle().Foreground(gink.ColorBrightCyan)))
 func SpinnerWithStyle(style Style) func() Element {
 	return func() Element {
-		frame, setFrame := UseState(0)
-		UseInterval(spinnerFrameInterval, func() {
-			setFrame((frame + 1) % len(spinnerFrames))
-		})
-		return Text(spinnerFrames[frame], style)
+		return Text(useSpinnerFrame(), style)
 	}
 }

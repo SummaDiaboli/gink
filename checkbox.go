@@ -1,5 +1,10 @@
 package gink
 
+const (
+	checkboxUnchecked = "[ ]"
+	checkboxChecked   = "[x]"
+)
+
 // NewCheckbox returns a focusable checkbox component.
 //
 // checked is the current state — the parent owns it and receives updates via
@@ -34,19 +39,12 @@ func NewCheckbox(label string, checked bool, onChange func(bool), styles ...Styl
 			toggle()
 		})
 
-		const (
-			checkboxUnchecked = "[ ]"
-			checkboxChecked   = "[x]"
-		)
 		glyph := checkboxUnchecked
 		if checked {
 			glyph = checkboxChecked
 		}
 
-		style := NewStyle()
-		if isFocused {
-			style = focusStyle
-		}
+		style := focusedStyle(isFocused, focusStyle)
 
 		return Text(glyph+" "+label, style)
 	}

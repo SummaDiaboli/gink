@@ -137,6 +137,17 @@ func itemStyle(selected, focused bool, focusStyle Style) Style {
 	return NewStyle().Bold()
 }
 
+// focusedStyle returns focusStyle when active is true, otherwise the zero style.
+// Use for single-glyph focus indicators where itemStyle's selected-but-unfocused
+// Bold fallback doesn't apply (e.g. a lone checkbox, or a cursor row that isn't
+// a persistent multi-row selection).
+func focusedStyle(active bool, focusStyle Style) Style {
+	if active {
+		return focusStyle
+	}
+	return NewStyle()
+}
+
 // TextProps holds the content and style for a text element.
 // Used internally by the reconciler; not part of the public API.
 type TextProps struct {

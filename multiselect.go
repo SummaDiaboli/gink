@@ -114,14 +114,11 @@ func NewMultiSelect(items []string, selected []bool, onToggle func(int), height 
 		for i, item := range items[offset:end] {
 			actualIdx := offset + i
 			checked := actualIdx < len(selected) && selected[actualIdx]
-			glyph := "[ ]"
+			glyph := checkboxUnchecked
 			if checked {
-				glyph = "[x]"
+				glyph = checkboxChecked
 			}
-			style := NewStyle()
-			if actualIdx == cursor && isFocused {
-				style = focusStyle
-			}
+			style := focusedStyle(actualIdx == cursor && isFocused, focusStyle)
 			rows = append(rows, Text(glyph+" "+item, style))
 		}
 		if hasBelow {

@@ -56,6 +56,20 @@ func clampIndex(idx, n int) int {
 	return idx
 }
 
+// clampCursor clamps cursor to [0, n-1] (0 when n <= 0), persisting the
+// change via setCursor only when it actually moved.
+func clampCursor(cursor, n int, setCursor func(int)) int {
+	if cursor >= n {
+		cursor = n - 1
+		setCursor(cursor)
+	}
+	if cursor < 0 {
+		cursor = 0
+		setCursor(cursor)
+	}
+	return cursor
+}
+
 // viewportOffset returns the viewport start offset that keeps idx visible
 // within a page of size height. Returns offset unchanged when idx is already
 // in view.

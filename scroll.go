@@ -106,6 +106,19 @@ func clampScroll() {
 	}
 }
 
+// scrollBy dispatches a scroll delta to the focused scroll handler first;
+// only if none consumes it does the global scroll offset move.
+func scrollBy(delta int) {
+	if dispatchScroll(delta) {
+		return
+	}
+	if delta > 0 {
+		scrollDown(delta)
+	} else {
+		scrollUp(-delta)
+	}
+}
+
 // scrollToY adjusts scrollOffset so that virtual row y is visible.
 func scrollToY(y int) {
 	avail := availableHeight()

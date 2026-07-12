@@ -11,5 +11,5 @@ package gink
 // Badges are pure elements — no hooks, no state — so they can appear anywhere
 // in a layout tree without needing [C].
 func Badge(label string, styles ...Style) Element {
-	return Text("[ "+label+" ]", styles...)
+	return Text(bracketed(label), styles...)
 }

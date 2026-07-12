@@ -32,14 +32,7 @@ func NewMultiSelect(items []string, selected []bool, onToggle func(int), height 
 		isFocused := UseFocus()
 
 		// Clamp cursor to valid range when items shrink externally.
-		if cursor >= len(items) {
-			cursor = len(items) - 1
-			setCursor(cursor)
-		}
-		if cursor < 0 {
-			cursor = 0
-			setCursor(cursor)
-		}
+		cursor = clampCursor(cursor, len(items), setCursor)
 
 		// Keep cursor visible in viewport.
 		if newOff := viewportOffset(cursor, offset, height); newOff != offset {
@@ -114,14 +107,11 @@ func NewMultiSelect(items []string, selected []bool, onToggle func(int), height 
 		for i, item := range items[offset:end] {
 			actualIdx := offset + i
 			checked := actualIdx < len(selected) && selected[actualIdx]
-			glyph := "[ ]"
+			glyph := checkboxUnchecked
 			if checked {
-				glyph = "[x]"
+				glyph = checkboxChecked
 			}
-			style := NewStyle()
-			if actualIdx == cursor && isFocused {
-				style = focusStyle
-			}
+			style := focusedStyle(actualIdx == cursor && isFocused, focusStyle)
 			rows = append(rows, Text(glyph+" "+item, style))
 		}
 		if hasBelow {

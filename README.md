@@ -6,6 +6,8 @@ Gink brings component-based UI development to the terminal. You describe **what*
 
 Inspired by [Ink](https://github.com/vadimdemedes/ink) (React for CLI in JavaScript).
 
+📖 **[Read the full docs and tutorial on the wiki](https://github.com/SummaDiaboli/gink/wiki)** — this README covers the same ground for quick reference; the wiki has a step-by-step [Getting Started](https://github.com/SummaDiaboli/gink/wiki/Getting-Started) tutorial plus per-topic pages.
+
 ---
 
 ## Table of Contents

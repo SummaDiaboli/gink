@@ -43,7 +43,7 @@ func NewReconciler(r *renderer) *Reconciler {
 func (rec *Reconciler) hooksFor(path string) *renderContext {
 	ctx, ok := rec.hooks[path]
 	if !ok {
-		ctx = &renderContext{renderer: rec.renderer, path: path}
+		ctx = &renderContext{renderer: rec.renderer, path: path, prevHookCount: -1}
 		rec.hooks[path] = ctx
 	}
 	ctx.hookIndex = 0
@@ -145,6 +145,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		activePath = path
 		activeCtx = rec.hooksFor(path)
 		child := fn()
+		activeCtx.checkHookCount()
 		activeCtx = nil
 		activePath = ""
 

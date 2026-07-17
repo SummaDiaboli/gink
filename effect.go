@@ -36,12 +36,7 @@ func UseEffect(fn func() func(), deps []any) {
 	}
 
 	ctx := activeCtx
-	idx := ctx.hookIndex
-	ctx.hookIndex++
-
-	if idx >= len(ctx.slots) {
-		ctx.slots = append(ctx.slots, hookSlot{})
-	}
+	idx, _ := ctx.nextSlot(kindEffect)
 
 	slot := &ctx.slots[idx]
 

@@ -36,12 +36,10 @@ func UseRef[T any](initial T) *Ref[T] {
 	}
 
 	ctx := activeCtx
-	idx := ctx.hookIndex
-	ctx.hookIndex++
-
-	if idx >= len(ctx.slots) {
+	idx, isNew := ctx.nextSlot(kindRef)
+	if isNew {
 		// Store the pointer itself so the same Ref[T] is returned on every render.
-		ctx.slots = append(ctx.slots, hookSlot{value: &Ref[T]{Value: initial}})
+		ctx.slots[idx].value = &Ref[T]{Value: initial}
 	}
 
 	return ctx.slots[idx].value.(*Ref[T])

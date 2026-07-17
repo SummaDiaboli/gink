@@ -2,6 +2,7 @@ package gink
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -306,6 +307,90 @@ func TestUseRef_doesNotTriggerRerender(t *testing.T) {
 		// correct — channel is empty
 	}
 	_ = before
+}
+
+// ── hook order violations ───────────────────────────────────────────────────
+
+func TestHookOrder_panicsWhenHookSkippedConditionally(t *testing.T) {
+	var set func(bool)
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic when a hook call is skipped conditionally, got none")
+		}
+		msg := fmt.Sprintf("%v", r)
+		if !strings.Contains(msg, "different number of hooks") {
+			t.Errorf("panic message = %q, want it to mention hook count mismatch", msg)
+		}
+	}()
+
+	h := NewHarness(t, func() Element {
+		callExtra, setCallExtra := UseState(false)
+		set = setCallExtra
+		if callExtra {
+			UseState(0)
+		}
+		return Text("")
+	})
+	defer h.Close()
+
+	set(true)
+	h.Render()
+}
+
+func TestHookOrder_panicsWhenHooksReordered(t *testing.T) {
+	var set func(bool)
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic when hooks are reordered between renders, got none")
+		}
+		msg := fmt.Sprintf("%v", r)
+		if !strings.Contains(msg, "previous render called") {
+			t.Errorf("panic message = %q, want it to mention a hook kind mismatch", msg)
+		}
+	}()
+
+	h := NewHarness(t, func() Element {
+		swap, setSwap := UseState(false)
+		set = setSwap
+		if swap {
+			UseEffect(func() func() { return nil }, nil)
+			UseState(0)
+		} else {
+			UseState(0)
+			UseEffect(func() func() { return nil }, nil)
+		}
+		return Text("")
+	})
+	defer h.Close()
+
+	set(true)
+	h.Render()
+}
+
+func TestHookOrder_noPanicWhenHooksConsistent(t *testing.T) {
+	var set func(int)
+
+	h := NewHarness(t, func() Element {
+		count, setCount := UseState(0)
+		set = setCount
+		UseEffect(func() func() { return nil }, []any{count})
+		UseRef(0)
+		return Text(fmt.Sprintf("%d", count))
+	})
+	defer h.Close()
+
+	set(1)
+	h.Render()
+	set(2)
+	h.Render()
+
+	if h.Line(0) != "2" {
+		t.Errorf("consistent hook usage: got %q, want 2", h.Line(0))
+	}
 }
 
 // ── UseInput ─────────────────────────────────────────────────────────────────

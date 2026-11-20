@@ -6,6 +6,7 @@ import "reflect"
 // They are executed after the buffer is flushed to the terminal, never during render,
 // matching React's guarantee that effects see the committed UI.
 var pendingEffects []func()
+var pendingCleanups []func()
 
 // UseEffect schedules a side effect to run after the current render completes.
 //
@@ -16,8 +17,10 @@ var pendingEffects []func()
 //   - []any{a}  — runs when a changes between renders (React: [a])
 //
 // fn may return a cleanup function. The cleanup runs before the next time the
-// effect fires, making it the right place to stop timers, cancel goroutines,
-// or close connections. There is currently no unmount cleanup.
+// effect fires and when the component is removed from the tree, making it the
+// right place to stop timers, cancel goroutines, or close connections.
+// Component identity is positional: without keys, a different component at the
+// same tree position reuses that position's hook state after cleanup.
 //
 //	// Run once on mount
 //	gink.UseEffect(func() func() {
@@ -57,6 +60,18 @@ func UseEffect(fn func() func(), deps []any) {
 		}
 		slot.cleanup = fn()
 	})
+}
+
+func queueCleanup(fn func()) {
+	pendingCleanups = append(pendingCleanups, fn)
+}
+
+func runCleanups() {
+	cleanups := pendingCleanups
+	pendingCleanups = nil
+	for _, fn := range cleanups {
+		fn()
+	}
 }
 
 // runEffects executes all effects collected during the last render pass.

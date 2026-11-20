@@ -14,6 +14,7 @@ const (
 	pluginMsgElement = "element"
 	pluginMsgInput   = "input"
 	pluginKeyRune    = "rune"
+	maxPluginLine    = 8 << 20
 )
 
 var pluginErrorStyle = NewStyle().Foreground(ColorBrightRed)
@@ -90,6 +91,7 @@ func NewPluginCmd(cmd *exec.Cmd) func() Element {
 			// Reader goroutine: parse element messages and push them into state.
 			go func() {
 				scanner := bufio.NewScanner(stdout)
+				scanner.Buffer(make([]byte, 0, 64*1024), maxPluginLine)
 				for scanner.Scan() {
 					var env struct {
 						Type string          `json:"type"`
@@ -102,6 +104,9 @@ func NewPluginCmd(cmd *exec.Cmd) func() Element {
 						el := parsePluginElement(env.Tree)
 						setTree(&el)
 					}
+				}
+				if err := scanner.Err(); err != nil {
+					setErr("read plugin output: " + err.Error())
 				}
 			}()
 

@@ -86,6 +86,7 @@ func commitRender(r *renderer, rec *Reconciler, root Component, w, h int, onClam
 		renderPass(r, rec, root, w, h) // reflect snapped focus in components
 	}
 	focusChanged = false
+	runCleanups()
 	runEffects() // always after final flush so effects see the committed UI
 	// Clamp after render when the full focusables list is known.
 	// If clamping changed focusedIdx, schedule a re-render so components

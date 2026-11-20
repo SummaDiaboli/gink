@@ -43,7 +43,8 @@ gink.C(gink.NewPlugin("python", "my-plugin.py"))
 ## Protocol
 
 All messages are JSON objects on a single line (`\n` terminated). Both
-directions use the same framing.
+directions use the same framing. The host accepts up to 8 MiB per line; larger
+messages are rejected and reported as a plugin error.
 
 ### Host → Plugin
 

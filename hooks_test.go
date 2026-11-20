@@ -623,7 +623,7 @@ func TestUseFocus_shiftTabMovesFocusBack(t *testing.T) {
 	})
 	defer h.Close()
 
-	h.Tab()     // A→B
+	h.Tab()      // A→B
 	h.ShiftTab() // B→A
 
 	if !aFocused {
@@ -661,5 +661,125 @@ func TestUseFocus_clampsWhenFocusablesShrink(t *testing.T) {
 	// After clamping and the automatic re-render, A should hold focus.
 	if !aFocused {
 		t.Error("after focusable count shrinks, focus should clamp to A (last valid index)")
+	}
+}
+
+func TestUseEffect_cleanupRunsOnUnmount(t *testing.T) {
+	var setShow func(bool)
+	cleanups := 0
+
+	child := func() Element {
+		UseEffect(func() func() {
+			return func() { cleanups++ }
+		}, []any{})
+		return Text("child")
+	}
+
+	h := NewHarness(t, func() Element {
+		show, set := UseState(true)
+		setShow = set
+		if show {
+			return Box(Text("parent"), C(child))
+		}
+		return Box(Text("parent"))
+	})
+	defer h.Close()
+
+	if cleanups != 0 {
+		t.Fatalf("cleanups before unmount = %d, want 0", cleanups)
+	}
+
+	setShow(false)
+	h.Render()
+
+	if cleanups != 1 {
+		t.Errorf("cleanups after unmount = %d, want 1", cleanups)
+	}
+}
+
+func TestUseEffect_cleanupStopsGoroutineOnUnmount(t *testing.T) {
+	var setShow func(bool)
+	stopped := make(chan struct{})
+
+	child := func() Element {
+		UseEffect(func() func() {
+			done := make(chan struct{})
+			go func() {
+				defer close(stopped)
+				<-done
+			}()
+			return func() { close(done) }
+		}, []any{})
+		return Text("worker")
+	}
+
+	h := NewHarness(t, func() Element {
+		show, set := UseState(true)
+		setShow = set
+		if show {
+			return C(child)
+		}
+		return Text("hidden")
+	})
+	defer h.Close()
+
+	setShow(false)
+	h.Render()
+
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("effect goroutine was not stopped on unmount")
+	}
+}
+
+func TestUnmountRemountResetsHookState(t *testing.T) {
+	var setShow func(bool)
+	var setChild func(int)
+	runs, cleanups := 0, 0
+
+	child := func() Element {
+		count, set := UseState(0)
+		setChild = set
+		UseEffect(func() func() {
+			runs++
+			return func() { cleanups++ }
+		}, []any{})
+		return Text(fmt.Sprintf("count:%d", count))
+	}
+
+	h := NewHarness(t, func() Element {
+		show, set := UseState(true)
+		setShow = set
+		if show {
+			return C(child)
+		}
+		return Text("hidden")
+	})
+	defer h.Close()
+
+	setChild(5)
+	h.Render()
+	if !h.Contains("count:5") {
+		t.Fatal("expected child state update to render")
+	}
+
+	setShow(false)
+	h.Render()
+	if cleanups != 1 {
+		t.Fatalf("cleanups after unmount = %d, want 1", cleanups)
+	}
+
+	setShow(true)
+	h.Render()
+
+	if !h.Contains("count:0") {
+		t.Errorf("child state after remount should reset, got lines %v", h.Lines())
+	}
+	if runs != 2 {
+		t.Errorf("effect runs after remount = %d, want 2", runs)
+	}
+	if cleanups != 1 {
+		t.Errorf("cleanups after remount = %d, want 1", cleanups)
 	}
 }

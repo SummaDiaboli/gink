@@ -8,34 +8,39 @@ import (
 // componentCache stores the rendered output of a component so it can be
 // restored on subsequent renders when the component's state has not changed.
 type componentCache struct {
-	w, h              int
-	cells             [][]Cell         // [row][col], relative to the component's top-left corner
-	focusedIdx        int              // global focusedIdx at time of render
-	wasFocusedWithin  bool             // isFocusedWithinPath result at render time
-	focusablePaths    []focusable      // focusables entries added by this subtree
+	w, h                 int
+	cells                [][]Cell // [row][col], relative to the component's top-left corner
+	paths                []string
+	focusedIdx           int                    // global focusedIdx at time of render
+	wasFocusedWithin     bool                   // isFocusedWithinPath result at render time
+	focusablePaths       []focusable            // focusables entries added by this subtree
 	inputHandlerCache    []func(KeyEvent)       // inputHandlers entries added by this subtree
 	keyboardHandlerCache []func(KeyEvent)       // keyboardHandlers entries added by this subtree
 	clickHandlerCache    []clickHandler         // clickHandlers entries added by this subtree
 	bindingCache         []registeredBinding    // activeBindings entries added by this subtree
 	scrollHandlerCache   []func(delta int) bool // scrollHandlers entries added by this subtree
-	footerBuf         *Buffer          // non-nil when this subtree rendered a "shell" element
+	footerBuf            *Buffer                // non-nil when this subtree rendered a "shell" element
 }
 
 // Reconciler walks an Element tree and paints it into a Buffer.
 // It owns the per-component hook stores, keyed by tree path.
 type Reconciler struct {
-	hooks       map[string]*renderContext
-	renderer    *renderer
-	cellCache   map[string]componentCache
-	dirtySnap   map[string]bool // snapshot taken at the start of each Render pass
-	FooterBuf   *Buffer         // set when a "shell" element is rendered; nil otherwise
+	hooks         map[string]*renderContext
+	renderer      *renderer
+	cellCache     map[string]componentCache
+	dirtySnap     map[string]bool // snapshot taken at the start of each Render pass
+	FooterBuf     *Buffer         // set when a "shell" element is rendered; nil otherwise
+	visitedPaths  map[string]bool
+	renderedPaths []string
+	mountedPaths  map[string]bool
 }
 
 func NewReconciler(r *renderer) *Reconciler {
 	return &Reconciler{
-		hooks:     make(map[string]*renderContext),
-		renderer:  r,
-		cellCache: make(map[string]componentCache),
+		hooks:        make(map[string]*renderContext),
+		renderer:     r,
+		cellCache:    make(map[string]componentCache),
+		mountedPaths: make(map[string]bool),
 	}
 }
 
@@ -48,6 +53,48 @@ func (rec *Reconciler) hooksFor(path string) *renderContext {
 	}
 	ctx.hookIndex = 0
 	return ctx
+}
+
+func (rec *Reconciler) visitPath(path string) {
+	if rec.visitedPaths[path] {
+		return
+	}
+	rec.visitedPaths[path] = true
+	rec.renderedPaths = append(rec.renderedPaths, path)
+}
+
+func (rec *Reconciler) visitCachedPath(path string) {
+	if rec.visitedPaths[path] {
+		return
+	}
+	cache, ok := rec.cellCache[path]
+	if !ok {
+		return
+	}
+	rec.visitPath(path)
+	for _, p := range cache.paths {
+		rec.visitCachedPath(p)
+	}
+}
+
+func (rec *Reconciler) pruneUnmounted() {
+	for path := range rec.mountedPaths {
+		if rec.visitedPaths[path] {
+			continue
+		}
+		if ctx, ok := rec.hooks[path]; ok {
+			for i := range ctx.slots {
+				if ctx.slots[i].cleanup != nil {
+					cleanup := ctx.slots[i].cleanup
+					ctx.slots[i].cleanup = nil
+					queueCleanup(cleanup)
+				}
+			}
+			delete(rec.hooks, path)
+		}
+		delete(rec.cellCache, path)
+	}
+	rec.mountedPaths, rec.visitedPaths = rec.visitedPaths, nil
 }
 
 // needsRender returns true if the component at path must be re-rendered:
@@ -88,7 +135,10 @@ func (rec *Reconciler) needsRender(path string) bool {
 func (rec *Reconciler) Render(root Element, w, h int) *Buffer {
 	buf := NewBuffer(w, h)
 	rec.dirtySnap = rec.renderer.snapshotDirty()
+	rec.visitedPaths = make(map[string]bool)
+	rec.renderedPaths = rec.renderedPaths[:0]
 	rec.renderElement(root, buf, 0, 0, "root")
+	rec.pruneUnmounted()
 	return buf
 }
 
@@ -100,6 +150,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		fn := el.Props.(func() Element)
 
 		if !rec.needsRender(path) {
+			rec.visitCachedPath(path)
 			// Restore cached cells and side effects at the current position.
 			cache := rec.cellCache[path]
 			for row := 0; row < cache.h; row++ {
@@ -140,6 +191,9 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		bindingsBefore := len(activeBindings)
 		scrollsBefore := len(scrollHandlers)
 
+		pathsBefore := len(rec.renderedPaths)
+		rec.visitPath(path)
+
 		activeY = y
 		activeX = x
 		activePath = path
@@ -175,15 +229,16 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		}
 		cache := componentCache{
 			w: w, h: h, focusedIdx: focusedIdx,
-			wasFocusedWithin:  isFocusedWithinPath(path),
-			focusablePaths:    relFocusables,
+			paths:                append([]string(nil), rec.renderedPaths[pathsBefore:]...),
+			wasFocusedWithin:     isFocusedWithinPath(path),
+			focusablePaths:       relFocusables,
 			inputHandlerCache:    append([]func(KeyEvent){}, inputHandlers[inputsBefore:]...),
 			keyboardHandlerCache: append([]func(KeyEvent){}, keyboardHandlers[keyboardsBefore:]...),
 			clickHandlerCache:    append([]clickHandler{}, clickHandlers[clicksBefore:]...),
 			bindingCache:         append([]registeredBinding{}, activeBindings[bindingsBefore:]...),
 			scrollHandlerCache:   append([]func(delta int) bool{}, scrollHandlers[scrollsBefore:]...),
-			cells:             make([][]Cell, h),
-			footerBuf:         rec.FooterBuf,
+			cells:                make([][]Cell, h),
+			footerBuf:            rec.FooterBuf,
 		}
 		for row := 0; row < h; row++ {
 			cache.cells[row] = make([]Cell, w)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 )
@@ -25,6 +26,8 @@ func TestMain(m *testing.M) {
 // Behaviour is controlled by additional env vars set per-test.
 func runPluginHelper() {
 	interactive := os.Getenv("GINK_PLUGIN_INTERACTIVE") == "1"
+	large := os.Getenv("GINK_PLUGIN_LARGE") == "1"
+	huge := os.Getenv("GINK_PLUGIN_HUGE") == "1"
 	activated := false
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -36,9 +39,14 @@ func runPluginHelper() {
 
 		switch msg["type"] {
 		case "render":
-			if interactive {
+			switch {
+			case huge:
+				fmt.Fprintln(os.Stdout, `{"type":"element","tree":{"type":"text","content":"`+strings.Repeat("x", 9*1024*1024)+`"}}`)
+			case large:
+				sendHelperElement("LARGE_OK " + strings.Repeat("x", 70*1024))
+			case interactive:
 				sendHelperElement("Waiting for input")
-			} else {
+			default:
 				sendHelperElement("Hello from plugin")
 			}
 
@@ -179,4 +187,42 @@ func TestNewPluginCmd_elementTypes(t *testing.T) {
 	}
 
 	_ = cmd // unused — test uses the parser directly
+}
+
+func TestNewPlugin_largeElementPayload(t *testing.T) {
+	h := NewHarness(t, NewPluginCmd(helperCmd(t, "GINK_PLUGIN_LARGE=1")))
+	defer h.Close()
+
+	awaitContains(t, h, "LARGE_OK", 2*time.Second)
+}
+
+func TestNewPlugin_reportsOversizedLine(t *testing.T) {
+	h := NewHarness(t, NewPluginCmd(helperCmd(t, "GINK_PLUGIN_HUGE=1")))
+	defer h.Close()
+
+	awaitContains(t, h, "plugin error", 3*time.Second)
+}
+
+func TestNewPlugin_cleanupOnUnmount(t *testing.T) {
+	cmd := helperCmd(t)
+	var setShow func(bool)
+
+	h := NewHarness(t, func() Element {
+		show, set := UseState(true)
+		setShow = set
+		if !show {
+			return Text("hidden")
+		}
+		return C(NewPluginCmd(cmd))
+	})
+	defer h.Close()
+
+	awaitContains(t, h, "Hello from plugin", 2*time.Second)
+
+	setShow(false)
+	h.Render()
+
+	if cmd.ProcessState == nil {
+		t.Fatal("plugin process was not reaped on unmount")
+	}
 }

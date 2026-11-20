@@ -75,6 +75,7 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 	focusBarrier = ""
 	activeBindings = nil
 	scrollHandlers = nil
+	pendingCleanups = nil
 	ThemeCtx = NewContext(DefaultTheme)
 	accessibilityHints = map[string]string{}
 	currentAccessibilityLabel = ""

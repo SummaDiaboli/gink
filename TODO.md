@@ -111,3 +111,4 @@
 - Plugin output limit (8 MiB) and read-error reporting ✓
 - Per-renderer runtime state with isolated hooks, focus, scroll, effects, and context ✓
 - `UseInterval` callback race fix ✓
+- Non-flex layout measurement pass — divider fill width, exact ScrollView height, layout-aware cache invalidation ✓

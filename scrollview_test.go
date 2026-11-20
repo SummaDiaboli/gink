@@ -280,3 +280,26 @@ func TestScrollView_wheelFallsThroughToGlobalWhenUnfocused(t *testing.T) {
 		t.Errorf("expected Row 03 to be visible after WheelDown; lines: %v", h.Lines())
 	}
 }
+
+func TestScrollView_exactHeightOver256(t *testing.T) {
+	items := make([]gink.Element, 300)
+	for i := range items {
+		items[i] = gink.Text(fmt.Sprintf("line %d", i))
+	}
+
+	h := gink.NewHarnessSize(t, func() gink.Element {
+		return gink.C(gink.NewScrollView(4, gink.Box(items...)))
+	}, 20, 6)
+	defer h.Close()
+
+	for range 60 {
+		h.PageDown()
+	}
+
+	if !h.Contains("line 299") {
+		t.Errorf("expected bottom line to be visible; lines: %v", h.Lines())
+	}
+	if h.Contains("line 0") {
+		t.Errorf("expected top line to be scrolled away; lines: %v", h.Lines())
+	}
+}

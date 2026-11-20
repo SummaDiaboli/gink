@@ -86,9 +86,8 @@ func Clock() gink.Element {
 // list of servers. Selecting a server updates SelectedCtx so MetricsPanel
 // reacts without any prop threading.
 //
-// Note: Divider is intentionally avoided inside this panel because it uses
-// UseTermSize (full terminal width), which would widen the border to fill the
-// screen and leave no room for the right panel.
+// Divider is safe here: it sizes to the available panel width instead of the
+// full terminal width.
 func ServerList() gink.Element {
 	focused := gink.UseFocusWithin()
 	sel := gink.UseContext(SelectedCtx)

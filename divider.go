@@ -1,18 +1,16 @@
 package gink
 
-import "strings"
+type DividerProps struct {
+	Label string
+	Style Style
+}
 
 // Divider is a component that renders a full-width horizontal rule using ─
-// characters. The width adapts automatically to the terminal via UseTermSize.
+// characters. The width adapts to the available layout width.
 //
 //	gink.C(gink.Divider)
 func Divider() Element {
-	return Text(dividerLine())
-}
-
-// dividerLine builds a full-width "─" rule sized to the current terminal.
-func dividerLine() string {
-	return strings.Repeat("─", UseTermSize().Width)
+	return Element{Type: "divider", Props: DividerProps{}}
 }
 
 // DividerStyled returns a Divider component rendered with the given style.
@@ -21,7 +19,7 @@ func dividerLine() string {
 //	gink.C(gink.DividerStyled(gink.NewStyle().Foreground(gink.ColorBrightBlack)))
 func DividerStyled(style Style) func() Element {
 	return func() Element {
-		return Text(dividerLine(), style)
+		return Element{Type: "divider", Props: DividerProps{Style: style}}
 	}
 }
 
@@ -32,16 +30,10 @@ func DividerStyled(style Style) func() Element {
 //	gink.C(gink.DividerWithLabel("Section", gink.NewStyle().Bold()))
 func DividerWithLabel(label string, styles ...Style) func() Element {
 	return func() Element {
-		size := UseTermSize()
 		style, _ := optionalStyle(styles)
-		inner := " " + label + " "
-		dashes := size.Width - len([]rune(inner))
-		if dashes < 2 {
-			// Terminal too narrow to fit the label with dashes — just show the label.
-			return Text(inner, style)
+		return Element{
+			Type:  "divider",
+			Props: DividerProps{Label: " " + label + " ", Style: style},
 		}
-		left := dashes / 2
-		right := dashes - left
-		return Text(strings.Repeat("─", left)+inner+strings.Repeat("─", right), style)
 	}
 }

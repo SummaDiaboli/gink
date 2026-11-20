@@ -9,6 +9,8 @@ import (
 // restored on subsequent renders when the component's state has not changed.
 type componentCache struct {
 	w, h                 int
+	layoutW, layoutH     int
+	pass                 int
 	cells                [][]Cell // [row][col], relative to the component's top-left corner
 	paths                []string
 	focusedIdx           int                    // global focusedIdx at time of render
@@ -34,6 +36,12 @@ type Reconciler struct {
 	renderedPaths []string
 	mountedPaths  map[string]bool
 	scope         *renderScope
+	layoutW       int
+	layoutH       int
+	passSeq       int
+	probing       bool
+	fillWidth     int
+	fillPaths     map[string]bool
 }
 
 func NewReconciler(r *renderer) *Reconciler {
@@ -43,6 +51,157 @@ func NewReconciler(r *renderer) *Reconciler {
 		cellCache:    make(map[string]componentCache),
 		mountedPaths: make(map[string]bool),
 	}
+}
+
+type runtimeLayoutSnapshot struct {
+	focusablesLen             int
+	inputLen                  int
+	keyboardLen               int
+	clickLen                  int
+	scrollLen                 int
+	bindingLen                int
+	effectsLen                int
+	cleanupsLen               int
+	accessibilityHints        map[string]string
+	currentAccessibilityLabel string
+}
+
+type hookSlotSnapshot struct {
+	prevDeps []any
+	cleanup  func()
+}
+
+type renderStateSnapshot struct {
+	runtime          runtimeLayoutSnapshot
+	hooks            map[string][]hookSlotSnapshot
+	scope            *renderScope
+	footerBuf        *Buffer
+	visitedPaths     map[string]bool
+	renderedPathsLen int
+	layoutW          int
+	layoutH          int
+	probing          bool
+	fillWidth        int
+	fillPaths        map[string]bool
+}
+
+func copyBoolMap(src map[string]bool) map[string]bool {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]bool, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func copyStringMap(src map[string]string) map[string]string {
+	if src == nil {
+		return nil
+	}
+	dst := make(map[string]string, len(src))
+	for k, v := range src {
+		dst[k] = v
+	}
+	return dst
+}
+
+func copyAnySlice(src []any) []any {
+	if src == nil {
+		return nil
+	}
+	return append([]any(nil), src...)
+}
+
+func pathWithin(prefix, path string) bool {
+	return path == prefix || strings.HasPrefix(path, prefix+"/")
+}
+
+func (s *runtimeState) snapshotLayout() runtimeLayoutSnapshot {
+	return runtimeLayoutSnapshot{
+		focusablesLen:             len(s.focusables),
+		inputLen:                  len(s.inputHandlers),
+		keyboardLen:               len(s.keyboardHandlers),
+		clickLen:                  len(s.clickHandlers),
+		scrollLen:                 len(s.scrollHandlers),
+		bindingLen:                len(s.activeBindings),
+		effectsLen:                len(s.pendingEffects),
+		cleanupsLen:               len(s.pendingCleanups),
+		accessibilityHints:        copyStringMap(s.accessibilityHints),
+		currentAccessibilityLabel: s.currentAccessibilityLabel,
+	}
+}
+
+func (s *runtimeState) restoreLayout(snap runtimeLayoutSnapshot, keepEffects bool) {
+	s.focusables = s.focusables[:snap.focusablesLen]
+	s.inputHandlers = s.inputHandlers[:snap.inputLen]
+	s.keyboardHandlers = s.keyboardHandlers[:snap.keyboardLen]
+	s.clickHandlers = s.clickHandlers[:snap.clickLen]
+	s.scrollHandlers = s.scrollHandlers[:snap.scrollLen]
+	s.activeBindings = s.activeBindings[:snap.bindingLen]
+	if !keepEffects {
+		s.pendingEffects = s.pendingEffects[:snap.effectsLen]
+		s.pendingCleanups = s.pendingCleanups[:snap.cleanupsLen]
+	}
+	s.accessibilityHints = copyStringMap(snap.accessibilityHints)
+	s.currentAccessibilityLabel = snap.currentAccessibilityLabel
+}
+
+func (rec *Reconciler) snapshotRenderState() renderStateSnapshot {
+	hooks := make(map[string][]hookSlotSnapshot, len(rec.hooks))
+	for path, ctx := range rec.hooks {
+		slots := make([]hookSlotSnapshot, len(ctx.slots))
+		for i := range ctx.slots {
+			slots[i] = hookSlotSnapshot{
+				prevDeps: copyAnySlice(ctx.slots[i].prevDeps),
+				cleanup:  ctx.slots[i].cleanup,
+			}
+		}
+		hooks[path] = slots
+	}
+	return renderStateSnapshot{
+		runtime:          rec.renderer.state.snapshotLayout(),
+		hooks:            hooks,
+		scope:            rec.scope,
+		footerBuf:        rec.FooterBuf,
+		visitedPaths:     copyBoolMap(rec.visitedPaths),
+		renderedPathsLen: len(rec.renderedPaths),
+		layoutW:          rec.layoutW,
+		layoutH:          rec.layoutH,
+		probing:          rec.probing,
+		fillWidth:        rec.fillWidth,
+		fillPaths:        copyBoolMap(rec.fillPaths),
+	}
+}
+
+func (rec *Reconciler) restoreRenderState(snap renderStateSnapshot, keepEffects bool) {
+	rec.renderer.state.restoreLayout(snap.runtime, keepEffects)
+	if !keepEffects {
+		for path, ctx := range rec.hooks {
+			slots, ok := snap.hooks[path]
+			if !ok {
+				delete(rec.hooks, path)
+				continue
+			}
+			for i := range ctx.slots {
+				if i >= len(slots) {
+					break
+				}
+				ctx.slots[i].prevDeps = copyAnySlice(slots[i].prevDeps)
+				ctx.slots[i].cleanup = slots[i].cleanup
+			}
+		}
+	}
+	rec.scope = snap.scope
+	rec.FooterBuf = snap.footerBuf
+	rec.visitedPaths = copyBoolMap(snap.visitedPaths)
+	rec.renderedPaths = rec.renderedPaths[:snap.renderedPathsLen]
+	rec.layoutW = snap.layoutW
+	rec.layoutH = snap.layoutH
+	rec.probing = snap.probing
+	rec.fillWidth = snap.fillWidth
+	rec.fillPaths = copyBoolMap(snap.fillPaths)
 }
 
 // hooksFor returns the renderContext for a given tree path, creating it on first use.
@@ -107,6 +266,12 @@ func (rec *Reconciler) needsRender(path string) bool {
 	if !cached {
 		return true
 	}
+	if cache.layoutW != rec.layoutW || cache.layoutH != rec.layoutH {
+		return true
+	}
+	if cache.pass == rec.passSeq {
+		return false
+	}
 	state := &rec.renderer.state
 	if cache.focusedIdx != state.focusedIdx {
 		return true
@@ -139,6 +304,12 @@ func (rec *Reconciler) Render(root Element, w, h int) *Buffer {
 	rec.dirtySnap = rec.renderer.snapshotDirty()
 	rec.visitedPaths = make(map[string]bool)
 	rec.renderedPaths = rec.renderedPaths[:0]
+	rec.layoutW = w
+	rec.layoutH = h
+	rec.passSeq++
+	rec.probing = false
+	rec.fillWidth = 0
+	rec.fillPaths = nil
 	rec.renderElement(root, buf, 0, 0, "root")
 	rec.pruneUnmounted()
 	return buf
@@ -246,7 +417,9 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			}
 		}
 		cache := componentCache{
-			w: w, h: h, focusedIdx: state.focusedIdx,
+			w: w, h: h, layoutW: rec.layoutW, layoutH: rec.layoutH,
+			pass:                 rec.passSeq,
+			focusedIdx:           state.focusedIdx,
 			paths:                append([]string(nil), rec.renderedPaths[pathsBefore:]...),
 			wasFocusedWithin:     state.isFocusedWithinPath(path),
 			focusablePaths:       relFocusables,
@@ -269,6 +442,44 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		rec.cellCache[path] = cache
 
 		return w, h
+
+	case "divider":
+		props, _ := el.Props.(DividerProps)
+		if rec.probing {
+			if rec.scope != nil {
+				if rec.fillPaths == nil {
+					rec.fillPaths = make(map[string]bool)
+				}
+				rec.fillPaths[rec.scope.path] = true
+			}
+			return 0, 1
+		}
+		width := rec.fillWidth
+		if width <= 0 {
+			width = rec.layoutW
+		}
+		if width <= 0 {
+			return 0, 0
+		}
+		runes := []rune(strings.Repeat("─", width))
+		label := []rune(props.Label)
+		if len(label) > 0 {
+			dashes := width - len(label)
+			if dashes >= 2 {
+				left := dashes / 2
+				right := dashes - left
+				runes = []rune(strings.Repeat("─", left) + props.Label + strings.Repeat("─", right))
+			} else {
+				runes = label
+			}
+		}
+		style := props.Style.toTcell()
+		for i, ch := range runes {
+			if x+i < buf.Width && y < buf.Height {
+				buf.Cells[y][x+i] = Cell{Rune: ch, Style: style}
+			}
+		}
+		return width, 1
 
 	case "text":
 		props := el.Props.(TextProps)
@@ -303,17 +514,76 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			return 0, 0
 		}
 
-		// Render child into a tall sub-buffer to capture its full content.
 		subH := props.Height * 8
 		if subH < 256 {
 			subH = 256
 		}
-		subBuf := NewBuffer(buf.Width, subH)
-		cw, ch := rec.renderElement(props.Child, subBuf, 0, 0, path+"/content")
+		contentH := 0
+		for {
+			snap := rec.snapshotRenderState()
+			subBuf := NewBuffer(buf.Width, subH)
+			if rec.scope != nil {
+				rec.scope.offsetX += x
+				rec.scope.offsetY += y
+			}
+			oldW, oldH := rec.layoutW, rec.layoutH
+			oldProbing, oldFillWidth := rec.probing, rec.fillWidth
+			oldFillPaths := rec.fillPaths
+			rec.layoutW = buf.Width
+			rec.layoutH = subH
+			rec.probing = true
+			rec.fillWidth = 0
+			rec.fillPaths = nil
+			rec.renderElement(props.Child, subBuf, 0, 0, path+"/content")
+			if rec.scope != nil {
+				rec.scope.offsetX -= x
+				rec.scope.offsetY -= y
+			}
+			rec.layoutW, rec.layoutH = oldW, oldH
+			rec.probing, rec.fillWidth = oldProbing, oldFillWidth
+			rec.fillPaths = oldFillPaths
 
-		// Clamp offset so the viewport never scrolls past the last content row.
+			detected := detectContentHeight(subBuf)
+			fits := detected < subH
+			measuredFillPaths := rec.fillPaths
+			rec.restoreRenderState(snap, fits)
+			for p := range measuredFillPaths {
+				delete(rec.cellCache, p)
+			}
+			contentH = detected
+			if fits || subH >= 1<<20 {
+				break
+			}
+			subH *= 2
+		}
+
+		subBuf := NewBuffer(buf.Width, subH)
+		if rec.scope != nil {
+			rec.scope.offsetX += x
+			rec.scope.offsetY += y
+		}
+		oldW, oldH := rec.layoutW, rec.layoutH
+		oldProbing, oldFillWidth := rec.probing, rec.fillWidth
+		oldFillPaths := rec.fillPaths
+		rec.layoutW = buf.Width
+		rec.layoutH = subH
+		rec.probing = false
+		rec.fillWidth = 0
+		rec.fillPaths = nil
+		cw, _ := rec.renderElement(props.Child, subBuf, 0, 0, path+"/content")
+		if rec.scope != nil {
+			rec.scope.offsetX -= x
+			rec.scope.offsetY -= y
+		}
+		rec.layoutW, rec.layoutH = oldW, oldH
+		rec.probing, rec.fillWidth = oldProbing, oldFillWidth
+		rec.fillPaths = oldFillPaths
+		if detected := detectContentHeight(subBuf); detected > 0 {
+			contentH = detected
+		}
+
 		offset := props.Offset
-		maxOffset := ch - props.Height
+		maxOffset := contentH - props.Height
 		if maxOffset < 0 {
 			maxOffset = 0
 		}
@@ -324,7 +594,6 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			offset = 0
 		}
 
-		// Copy the visible slice of the sub-buffer into the main buffer.
 		for row := 0; row < props.Height; row++ {
 			src := row + offset
 			if src < subBuf.Height {
@@ -336,11 +605,8 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			}
 		}
 
-		// Place scroll indicators in a dedicated column to the right of the content
-		// so they never overwrite rendered text. The extra column is only reported
-		// in the returned width when content overflows the viewport.
 		indW := 0
-		if ch > props.Height {
+		if contentH > props.Height {
 			indW = 1
 			indCol := x + cw
 			if indCol < buf.Width {
@@ -348,7 +614,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 				if offset > 0 && y < buf.Height {
 					buf.Cells[y][indCol] = Cell{Rune: '↑', Style: indStyle}
 				}
-				if offset+props.Height < ch && y+props.Height-1 < buf.Height {
+				if offset+props.Height < contentH && y+props.Height-1 < buf.Height {
 					buf.Cells[y+props.Height-1][indCol] = Cell{Rune: '↓', Style: indStyle}
 				}
 			}
@@ -384,12 +650,22 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		// without writing directly into the main buffer.
 		// Push the real screen offset so that any UseFocus calls inside the
 		// child record the correct absolute position for hit-testing.
-		subBuf := NewBuffer(buf.Width, buf.Height)
+		subW, subH := buf.Width, buf.Height
+		if props.MaxWidth > 0 && props.MaxWidth < subW {
+			subW = props.MaxWidth
+		}
+		if props.MaxHeight > 0 && props.MaxHeight < subH {
+			subH = props.MaxHeight
+		}
+		subBuf := NewBuffer(subW, subH)
 		if rec.scope != nil {
 			rec.scope.offsetX += x
 			rec.scope.offsetY += y
 		}
+		oldW, oldH := rec.layoutW, rec.layoutH
+		rec.layoutW, rec.layoutH = subW, subH
 		cw, ch := rec.renderElement(el.Children[0], subBuf, 0, 0, path+"/0")
+		rec.layoutW, rec.layoutH = oldW, oldH
 		if rec.scope != nil {
 			rec.scope.offsetX -= x
 			rec.scope.offsetY -= y
@@ -412,12 +688,12 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 
 		// Copy from sub-buffer into main buffer, clipping to the constrained size.
 		copyW := cw
-		if props.MaxWidth > 0 && copyW > props.MaxWidth {
-			copyW = props.MaxWidth
+		if copyW > subBuf.Width {
+			copyW = subBuf.Width
 		}
 		copyH := ch
-		if props.MaxHeight > 0 && copyH > props.MaxHeight {
-			copyH = props.MaxHeight
+		if copyH > subBuf.Height {
+			copyH = subBuf.Height
 		}
 		for row := 0; row < copyH; row++ {
 			for col := 0; col < copyW; col++ {
@@ -487,15 +763,102 @@ func (rec *Reconciler) renderColumn(children []Element, gap int, buf *Buffer, x,
 }
 
 func (rec *Reconciler) renderRow(children []Element, gap int, buf *Buffer, x, y int, path string) (int, int) {
+	if len(children) == 0 {
+		return 0, 0
+	}
+
+	if rec.probing || rec.layoutW <= 0 {
+		curX := x
+		maxH := 0
+		for i, child := range children {
+			childPath := fmt.Sprintf("%s/%d", path, i)
+			w, h := rec.renderElement(child, buf, curX, y, childPath)
+			curX += w
+			if h > maxH {
+				maxH = h
+			}
+			if i < len(children)-1 {
+				curX += gap
+			}
+		}
+		return curX - x, maxH
+	}
+
+	snap := rec.snapshotRenderState()
+	scratch := NewBuffer(buf.Width, buf.Height)
+	sizes := make([]int, len(children))
+	rec.probing = true
+	rec.fillWidth = 0
+	rec.fillPaths = make(map[string]bool)
+	probeX := x
+	for i, child := range children {
+		childPath := fmt.Sprintf("%s/%d", path, i)
+		w, _ := rec.renderElement(child, scratch, probeX, y, childPath)
+		sizes[i] = w
+		probeX += w + gap
+	}
+	fillPaths := rec.fillPaths
+	isFill := make([]bool, len(children))
+	for i := range children {
+		childPath := fmt.Sprintf("%s/%d", path, i)
+		for p := range fillPaths {
+			if pathWithin(childPath, p) {
+				isFill[i] = true
+				break
+			}
+		}
+	}
+	rec.restoreRenderState(snap, true)
+	for p := range fillPaths {
+		delete(rec.cellCache, p)
+	}
+
+	used := gap * (len(children) - 1)
+	fillCount := 0
+	for i := range children {
+		if isFill[i] {
+			fillCount++
+		} else {
+			used += sizes[i]
+		}
+	}
+	remaining := rec.layoutW - used
+	if remaining < 0 {
+		remaining = 0
+	}
+	allocated := make([]int, len(children))
+	copy(allocated, sizes)
+	if fillCount > 0 {
+		base := remaining / fillCount
+		extra := remaining % fillCount
+		for i := range children {
+			if !isFill[i] {
+				continue
+			}
+			allocated[i] = base
+			if extra > 0 {
+				allocated[i]++
+				extra--
+			}
+		}
+	}
+
+	oldFillWidth := rec.fillWidth
+	defer func() { rec.fillWidth = oldFillWidth }()
 	curX := x
 	maxH := 0
 	for i, child := range children {
 		childPath := fmt.Sprintf("%s/%d", path, i)
-		w, h := rec.renderElement(child, buf, curX, y, childPath)
-		curX += w
+		if isFill[i] {
+			rec.fillWidth = allocated[i]
+		} else {
+			rec.fillWidth = 0
+		}
+		_, h := rec.renderElement(child, buf, curX, y, childPath)
 		if h > maxH {
 			maxH = h
 		}
+		curX += allocated[i]
 		if i < len(children)-1 {
 			curX += gap
 		}

@@ -276,3 +276,28 @@ func TestPartialRender_cachedCellsRestoredCorrectly(t *testing.T) {
 		t.Errorf("after partial render: expected 'goodbye world', got %q", h.Line(0))
 	}
 }
+
+func TestPartialRender_layoutWidthChangeRerendersComponent(t *testing.T) {
+	count := 0
+	comp := func() Element {
+		count++
+		return Text(fmt.Sprintf("w=%d", UseTermSize().Width))
+	}
+
+	h := NewHarnessSize(t, func() Element { return C(comp) }, 20, 3)
+	defer h.Close()
+
+	if !h.Contains("w=20") {
+		t.Fatalf("initial render: expected w=20, got %q", h.Line(0))
+	}
+
+	h.Width = 10
+	h.Render()
+
+	if !h.Contains("w=10") {
+		t.Errorf("after width change: expected w=10, got %q", h.Line(0))
+	}
+	if count != 2 {
+		t.Errorf("component rendered %d times, want 2", count)
+	}
+}

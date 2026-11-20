@@ -68,3 +68,19 @@ func TestDividerStyled_rendersCorrectWidth(t *testing.T) {
 		t.Errorf("got %q, want %q", h.Line(0), want)
 	}
 }
+
+func TestDivider_fillsRemainingRowWidth(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Row(
+			C(func() Element { return Text("LEFT") }),
+			C(Divider),
+			C(func() Element { return Text("RIGHT") }),
+		)
+	}, 20, 3)
+	defer h.Close()
+
+	want := "LEFT" + strings.Repeat("─", 11) + "RIGHT"
+	if h.Line(0) != want {
+		t.Errorf("got %q, want %q", h.Line(0), want)
+	}
+}

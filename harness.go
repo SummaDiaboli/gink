@@ -62,24 +62,6 @@ func NewHarnessSize(t TestingT, root Component, width, height int) *Harness {
 		dirty:  make(chan struct{}, 1),
 	}
 
-	// Reset all global render state so tests are isolated from each other.
-	focusedIdx = 0
-	focusables = nil
-	prevFocusables = nil
-	keyboardHandlers = nil
-	activeCtx = nil
-	activePath = ""
-	scrollOffset = 0
-	scrollContent = 0
-	footerHeight = 0
-	focusBarrier = ""
-	activeBindings = nil
-	scrollHandlers = nil
-	pendingCleanups = nil
-	ThemeCtx = NewContext(DefaultTheme)
-	accessibilityHints = map[string]string{}
-	currentAccessibilityLabel = ""
-
 	h := &Harness{
 		rec:    NewReconciler(r),
 		screen: screen,
@@ -110,7 +92,7 @@ func (h *Harness) Render() {
 // only when none consume it does the global buffer move.
 func (h *Harness) doScroll(delta int) {
 	h.t.Helper()
-	scrollBy(delta)
+	h.r.state.scrollBy(delta)
 	h.Render()
 }
 
@@ -185,7 +167,7 @@ func (h *Harness) CellStyle(x, y int) tcell.Style {
 func (h *Harness) SendRune(r rune) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(tcell.KeyRune, r, tcell.ModNone)
-	dispatchKey(ev)
+	h.r.state.dispatchKey(ev)
 	h.Render()
 }
 
@@ -197,7 +179,7 @@ func (h *Harness) SendRune(r rune) {
 func (h *Harness) SendKey(key tcell.Key) {
 	h.t.Helper()
 	ev := tcell.NewEventKey(key, 0, tcell.ModNone)
-	dispatchKey(ev)
+	h.r.state.dispatchKey(ev)
 	h.Render()
 }
 
@@ -205,7 +187,7 @@ func (h *Harness) SendKey(key tcell.Key) {
 // Focus wraps around from the last focusable back to the first.
 func (h *Harness) Tab() {
 	h.t.Helper()
-	advanceFocus(1)
+	h.r.state.advanceFocus(1)
 	h.Render()
 }
 
@@ -213,7 +195,7 @@ func (h *Harness) Tab() {
 // Focus wraps around from the first focusable back to the last.
 func (h *Harness) ShiftTab() {
 	h.t.Helper()
-	advanceFocus(-1)
+	h.r.state.advanceFocus(-1)
 	h.Render()
 }
 
@@ -235,7 +217,7 @@ func (h *Harness) Backspace() {
 // fires any [UseClick] handler registered by that component.
 func (h *Harness) Click(x, y int) {
 	h.t.Helper()
-	dispatchClick(x, y)
+	h.r.state.dispatchClick(x, y)
 	h.Render()
 }
 
@@ -244,7 +226,7 @@ func (h *Harness) Click(x, y int) {
 // The label is resolved after each render, so it reflects the state after the
 // most recent interaction or [Harness.Render] call.
 func (h *Harness) AccessibilityLabel() string {
-	return AccessibilityLabel()
+	return h.r.state.currentAccessibilityLabel
 }
 
 // Close releases the simulation screen. Call it with defer immediately after

@@ -36,6 +36,15 @@ type hookSlot struct {
 	cleanup  func() // UseEffect: cleanup function returned by the last effect
 }
 
+type renderScope struct {
+	path    string
+	x       int
+	y       int
+	offsetX int
+	offsetY int
+	state   *runtimeState
+}
+
 // renderContext tracks hook state for one component instance.
 // The reconciler creates one per unique tree path and resets hookIndex to 0
 // before each render, enforcing the same call-order contract as React hooks.
@@ -45,6 +54,7 @@ type renderContext struct {
 	prevHookCount int // hooks used on the previous render; -1 means no previous render yet
 	renderer      *renderer
 	path          string
+	scope         *renderScope
 }
 
 // nextSlot returns the index of the slot for the next hook call of the given kind

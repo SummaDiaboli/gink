@@ -6,12 +6,10 @@ import "sync"
 // can read without prop drilling. Create one with [NewContext], read its value
 // with [UseContext], and update it with [SetContext].
 //
-// Unlike React's context, this implementation uses a global registry — there
-// is one value per context object, shared across the entire application. This
-// is the natural fit for TUI apps, which have a single screen and a single
-// logical state space (theme, current user, global error state, etc.).
+// Values set during a render are scoped to that renderer; values set outside a
+// render update the process-wide default used by renderers without a local
+// override.
 //
-//	// Package-level context — created once, shared everywhere.
 //	var ThemeCtx = gink.NewContext(DefaultTheme)
 //
 //	// In a component:
@@ -22,7 +20,8 @@ import "sync"
 type Context[T any] struct {
 	mu       sync.Mutex
 	value    T
-	watchers map[string]*renderContext // path → renderContext for each subscribed component
+	values   map[*renderer]T
+	watchers map[*renderer]map[string]*renderContext
 }
 
 // NewContext creates a new Context with the given default value.
@@ -34,7 +33,8 @@ type Context[T any] struct {
 func NewContext[T any](defaultValue T) *Context[T] {
 	return &Context[T]{
 		value:    defaultValue,
-		watchers: make(map[string]*renderContext),
+		values:   make(map[*renderer]T),
+		watchers: make(map[*renderer]map[string]*renderContext),
 	}
 }
 
@@ -51,9 +51,24 @@ func UseContext[T any](ctx *Context[T]) T {
 	if activeCtx == nil {
 		panic("gink: UseContext called outside of a component render — hooks must be called at the top level of a component function")
 	}
+	r := activeCtx.renderer
 	ctx.mu.Lock()
-	ctx.watchers[activeCtx.path] = activeCtx
-	val := ctx.value
+	if ctx.values == nil {
+		ctx.values = make(map[*renderer]T)
+	}
+	if ctx.watchers == nil {
+		ctx.watchers = make(map[*renderer]map[string]*renderContext)
+	}
+	val, ok := ctx.values[r]
+	if !ok {
+		val = ctx.value
+	}
+	byPath := ctx.watchers[r]
+	if byPath == nil {
+		byPath = make(map[string]*renderContext)
+		ctx.watchers[r] = byPath
+	}
+	byPath[activeCtx.path] = activeCtx
 	ctx.mu.Unlock()
 	return val
 }
@@ -65,18 +80,30 @@ func UseContext[T any](ctx *Context[T]) T {
 //	gink.SetContext(ThemeCtx, DarkTheme)
 //	gink.SetContext(ErrorCtx, fmt.Errorf("connection lost"))
 func SetContext[T any](ctx *Context[T], value T) {
+	r := activeRenderer.Load()
 	ctx.mu.Lock()
-	ctx.value = value
-	watchers := make([]*renderContext, 0, len(ctx.watchers))
-	for _, w := range ctx.watchers {
-		watchers = append(watchers, w)
+	if r != nil {
+		if ctx.values == nil {
+			ctx.values = make(map[*renderer]T)
+		}
+		ctx.values[r] = value
+	} else {
+		ctx.value = value
+	}
+	var watchers []*renderContext
+	if r != nil {
+		for _, w := range ctx.watchers[r] {
+			watchers = append(watchers, w)
+		}
+	} else {
+		for _, byPath := range ctx.watchers {
+			for _, w := range byPath {
+				watchers = append(watchers, w)
+			}
+		}
 	}
 	ctx.mu.Unlock()
 
-	// Mark each subscribed component dirty outside the lock to avoid holding
-	// ctx.mu while markDirty acquires the renderer's mutex. This is safe
-	// because gink's render loop is single-goroutine: renderContext pointers
-	// in the snapshot remain valid until the next render cycle.
 	for _, w := range watchers {
 		w.renderer.markDirty(w.path)
 	}

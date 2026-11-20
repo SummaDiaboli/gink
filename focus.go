@@ -13,28 +13,6 @@ type focusable struct {
 	h    int // component height; 0 means not yet backfilled
 }
 
-// focusables is rebuilt on every render pass, in tree order.
-// focusedIdx is the index of the currently focused component within that list.
-var focusables []focusable
-var focusedIdx int
-
-// prevFocusables is a snapshot of focusables from the previous render pass.
-// UseFocusWithin reads it so it can check descendant focus before children
-// have rendered in the current pass.
-var prevFocusables []focusable
-
-// activePath, activeY, and activeX are set by the reconciler before calling
-// each component function so UseFocus can register the correct path and position.
-var activePath string
-var activeY int
-var activeX int
-
-// renderOffsetX and renderOffsetY accumulate the translation from sub-buffer
-// rendering (Constrain, Width, Height, Size). When a container renders its
-// child into a temporary buffer at (0,0), it pushes (x,y) onto the offsets so
-// UseFocus still records the correct absolute screen position.
-var renderOffsetX, renderOffsetY int
-
 // UseFocus registers the current component as a focusable element and returns
 // whether it currently holds focus.
 //
@@ -67,13 +45,15 @@ func UseFocus() bool {
 	if activeCtx == nil {
 		panic("gink: UseFocus called outside of a component render — hooks must be called at the top level of a component function")
 	}
-	myIdx := len(focusables)
-	focusables = append(focusables, focusable{
-		path: activePath,
-		y:    activeY + renderOffsetY,
-		x:    activeX + renderOffsetX,
+	scope := activeCtx.scope
+	state := scope.state
+	myIdx := len(state.focusables)
+	state.focusables = append(state.focusables, focusable{
+		path: scope.path,
+		y:    scope.y + scope.offsetY,
+		x:    scope.x + scope.offsetX,
 	})
-	return myIdx == focusedIdx
+	return myIdx == state.focusedIdx
 }
 
 // UseFocusWithin returns true when the currently focused component is this
@@ -93,31 +73,20 @@ func UseFocusWithin() bool {
 	if activeCtx == nil {
 		panic("gink: UseFocusWithin called outside of a component render — hooks must be called at the top level of a component function")
 	}
-	return isFocusedWithinPath(activePath)
+	return activeCtx.scope.state.isFocusedWithinPath(activeCtx.scope.path)
 }
 
 // isFocusedWithinPath returns true if prevFocusables[focusedIdx] is at or
 // within the subtree rooted at path. Used by UseFocusWithin and the reconciler
 // cache-invalidation check.
-func isFocusedWithinPath(path string) bool {
-	if focusedIdx >= len(prevFocusables) {
+func (s *runtimeState) isFocusedWithinPath(path string) bool {
+	if s.focusedIdx >= len(s.prevFocusables) {
 		return false
 	}
-	target := prevFocusables[focusedIdx].path
+	target := s.prevFocusables[s.focusedIdx].path
 	prefix := path + "/"
 	return target == path || strings.HasPrefix(target, prefix)
 }
-
-// focusChanged is set when Tab/Shift+Tab changes the focused component so
-// the next render knows to auto-scroll to the new focus position. It is
-// cleared after the scroll check so manual scrolling is never overridden.
-var focusChanged bool
-
-// focusBarrier is the tree path of the active focus barrier (e.g. a modal).
-// When non-empty, Tab/Shift+Tab cycle only within that subtree. Reset to ""
-// at the start of each render pass and re-registered by the component that
-// owns the barrier.
-var focusBarrier string
 
 // UseFocusBarrier registers the current component as a focus barrier.
 // While a barrier is active, Tab and Shift+Tab cycle focus only within this
@@ -137,27 +106,27 @@ func UseFocusBarrier() {
 	if activeCtx == nil {
 		panic("gink: UseFocusBarrier called outside of a component render — hooks must be called at the top level of a component function")
 	}
-	focusBarrier = activePath
+	activeCtx.scope.state.focusBarrier = activeCtx.scope.path
 }
 
 // snapFocusToBarrier moves focusedIdx to the first focusable within the
 // barrier subtree when focus is currently outside it. Called after each
 // render pass when focusBarrier is non-empty.
-func snapFocusToBarrier() {
-	if focusBarrier == "" {
+func (s *runtimeState) snapFocusToBarrier() {
+	if s.focusBarrier == "" {
 		return
 	}
-	prefix := focusBarrier + "/"
+	prefix := s.focusBarrier + "/"
 	inBarrier := func(path string) bool {
-		return path == focusBarrier || strings.HasPrefix(path, prefix)
+		return path == s.focusBarrier || strings.HasPrefix(path, prefix)
 	}
-	if focusedIdx < len(focusables) && inBarrier(focusables[focusedIdx].path) {
-		return // already inside
+	if s.focusedIdx < len(s.focusables) && inBarrier(s.focusables[s.focusedIdx].path) {
+		return
 	}
-	for i, f := range focusables {
+	for i, f := range s.focusables {
 		if inBarrier(f.path) {
-			focusedIdx = i
-			focusChanged = true
+			s.focusedIdx = i
+			s.focusChanged = true
 			return
 		}
 	}
@@ -167,19 +136,19 @@ func snapFocusToBarrier() {
 // When a focusBarrier is active it cycles only within that subtree;
 // otherwise it wraps around all focusables.
 // Called by the runtime on Tab / Shift+Tab — not part of the public API.
-func advanceFocus(delta int) {
-	if len(focusables) == 0 {
+func (s *runtimeState) advanceFocus(delta int) {
+	if len(s.focusables) == 0 {
 		return
 	}
-	if focusBarrier == "" {
-		focusedIdx = (focusedIdx + delta + len(focusables)) % len(focusables)
-		focusChanged = true
+	if s.focusBarrier == "" {
+		s.focusedIdx = (s.focusedIdx + delta + len(s.focusables)) % len(s.focusables)
+		s.focusChanged = true
 		return
 	}
-	prefix := focusBarrier + "/"
+	prefix := s.focusBarrier + "/"
 	var indices []int
-	for i, f := range focusables {
-		if f.path == focusBarrier || strings.HasPrefix(f.path, prefix) {
+	for i, f := range s.focusables {
+		if f.path == s.focusBarrier || strings.HasPrefix(f.path, prefix) {
 			indices = append(indices, i)
 		}
 	}
@@ -188,15 +157,15 @@ func advanceFocus(delta int) {
 	}
 	cur := -1
 	for i, idx := range indices {
-		if idx == focusedIdx {
+		if idx == s.focusedIdx {
 			cur = i
 			break
 		}
 	}
 	if cur == -1 {
-		focusedIdx = indices[0]
+		s.focusedIdx = indices[0]
 	} else {
-		focusedIdx = indices[(cur+delta+len(indices))%len(indices)]
+		s.focusedIdx = indices[(cur+delta+len(indices))%len(indices)]
 	}
-	focusChanged = true
+	s.focusChanged = true
 }

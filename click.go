@@ -6,10 +6,6 @@ type clickHandler struct {
 	fn   func(int, int)
 }
 
-// clickHandlers is rebuilt on every render pass, in tree order.
-// Cleared at the start of each render and refilled as component functions run.
-var clickHandlers []clickHandler
-
 // UseClick registers a handler that is called when this component is clicked.
 // x and y are coordinates local to the component's top-left corner.
 // The component must also call [UseFocus] to be included in hit-testing.
@@ -22,20 +18,20 @@ func UseClick(fn func(x, y int)) {
 	if activeCtx == nil {
 		panic("gink: UseClick called outside of a component render — hooks must be called at the top level of a component function")
 	}
-	clickHandlers = append(clickHandlers, clickHandler{path: activePath, fn: fn})
+	activeCtx.scope.state.clickHandlers = append(activeCtx.scope.state.clickHandlers, clickHandler{path: activeCtx.scope.path, fn: fn})
 }
 
 // dispatchClick handles a mouse left-click at screen position (mx, my).
 // It finds the innermost focusable whose bounds contain the click, transfers
 // focus to it, and fires any registered UseClick handler for that component.
-func dispatchClick(mx, my int) {
-	vy := my + scrollOffset
+func (s *runtimeState) dispatchClick(mx, my int) {
+	vy := my + s.scrollOffset
 
 	// Find the last focusable in tree order (innermost) whose full (x, y, w, h)
 	// bounds contain (mx, vy). Taking the last match gives priority to inner
 	// components over their ancestors when bounds overlap.
 	targetIdx := -1
-	for i, f := range focusables {
+	for i, f := range s.focusables {
 		if f.w == 0 || f.h == 0 {
 			continue
 		}
@@ -48,13 +44,13 @@ func dispatchClick(mx, my int) {
 		return
 	}
 
-	f := focusables[targetIdx]
-	focusedIdx = targetIdx
-	focusChanged = true
+	f := s.focusables[targetIdx]
+	s.focusedIdx = targetIdx
+	s.focusChanged = true
 
 	localX := mx - f.x
 	localY := vy - f.y
-	for _, ch := range clickHandlers {
+	for _, ch := range s.clickHandlers {
 		if ch.path == f.path {
 			ch.fn(localX, localY)
 		}

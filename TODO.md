@@ -16,6 +16,8 @@
 
 ## Testing
 
+- Windows `go test -race ./...` requires a C compiler (`choco install mingw`)
+  and `CGO_ENABLED=1`
 - `_test.go` coverage for `ref.go` and `effect.go` (`UseRef`,
   `UseEffect` — core hook primitives, currently untested directly)
 - `_test.go` coverage for `spinner.go`, `textinput.go` (backs
@@ -105,3 +107,7 @@
 - `Ctrl+V` paste — built into `NewInput` (newlines collapsed) and `NewTextArea` (multi-line preserved) ✓
 - `go mod tidy` — direct deps and `go.sum` cleaned up ✓
 - README screenshots generated from example apps via `internal/readmeimg` ✓
+- Unmount cleanup and stale hook-state pruning ✓
+- Plugin output limit (8 MiB) and read-error reporting ✓
+- Per-renderer runtime state with isolated hooks, focus, scroll, effects, and context ✓
+- `UseInterval` callback race fix ✓

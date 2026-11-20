@@ -21,3 +21,6 @@ vendor/
 .aider*
 CONCEPT.md
 TODO.local.md
+docs/risk-resolution-plan.md
+docs/flexbox-layout-plan.md
+docs/cli-helpers-plan.md

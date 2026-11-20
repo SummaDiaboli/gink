@@ -1,12 +1,8 @@
 package gink
 
-// accessibilityHints maps component path to its accessibility label for the
-// current render pass. Cleared before each render and rebuilt by UseAccessibility.
-var accessibilityHints = map[string]string{}
+import "sync/atomic"
 
-// currentAccessibilityLabel holds the label of the focused component after the
-// most recent render pass. Empty if the focused component did not register one.
-var currentAccessibilityLabel string
+var lastAccessibilityLabel atomic.Value
 
 // UseAccessibility registers a plain-text description for the current component.
 // After each render the runtime surfaces the focused component's label as the
@@ -22,7 +18,7 @@ func UseAccessibility(label string) {
 	if activeCtx == nil {
 		panic("gink: UseAccessibility called outside of a component render — hooks must be called at the top level of a component function")
 	}
-	accessibilityHints[activePath] = label
+	activeCtx.scope.state.accessibilityHints[activeCtx.scope.path] = label
 }
 
 // AccessibilityLabel returns the accessibility label of the focused component
@@ -33,17 +29,19 @@ func UseAccessibility(label string) {
 //	    t.Error("unexpected label")
 //	}
 func AccessibilityLabel() string {
-	return currentAccessibilityLabel
+	if v := lastAccessibilityLabel.Load(); v != nil {
+		return v.(string)
+	}
+	return ""
 }
 
-// resolveAccessibilityLabel sets currentAccessibilityLabel from the hints map
-// using the focused component's path. Called after each render pass.
-func resolveAccessibilityLabel() {
-	currentAccessibilityLabel = ""
-	if focusedIdx < len(focusables) {
-		path := focusables[focusedIdx].path
-		if label, ok := accessibilityHints[path]; ok {
-			currentAccessibilityLabel = label
+func (s *runtimeState) resolveAccessibilityLabel() string {
+	s.currentAccessibilityLabel = ""
+	if s.focusedIdx < len(s.focusables) {
+		path := s.focusables[s.focusedIdx].path
+		if label, ok := s.accessibilityHints[path]; ok {
+			s.currentAccessibilityLabel = label
 		}
 	}
+	return s.currentAccessibilityLabel
 }

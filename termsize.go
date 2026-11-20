@@ -6,10 +6,6 @@ type TermSize struct {
 	Height int // number of rows
 }
 
-// currentTermSize is set before every render pass so all calls to UseTermSize
-// within a render see dimensions consistent with the buffer being painted.
-var currentTermSize TermSize
-
 // UseTermSize returns the current terminal dimensions.
 //
 // The component re-renders automatically on resize — no subscription or event
@@ -29,11 +25,11 @@ var currentTermSize TermSize
 //	    return nil
 //	}, []any{size})
 //
-// Note: UseTermSize does not consume a hook slot. It reads a package-level
-// variable set by the runtime and has no per-render state of its own.
+// Note: UseTermSize does not consume a hook slot. It reads runtime state set
+// by the renderer and has no per-render state of its own.
 func UseTermSize() TermSize {
 	if activeCtx == nil {
 		panic("gink: UseTermSize called outside of a component render — hooks must be called at the top level of a component function")
 	}
-	return currentTermSize
+	return activeCtx.scope.state.currentTermSize
 }

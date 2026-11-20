@@ -2,12 +2,6 @@ package gink
 
 import "reflect"
 
-// pendingEffects collects effects registered during a render pass.
-// They are executed after the buffer is flushed to the terminal, never during render,
-// matching React's guarantee that effects see the committed UI.
-var pendingEffects []func()
-var pendingCleanups []func()
-
 // UseEffect schedules a side effect to run after the current render completes.
 //
 // The deps slice controls when the effect re-runs:
@@ -54,7 +48,7 @@ func UseEffect(fn func() func(), deps []any) {
 	slot.prevDeps = deps
 	slot.cleanup = nil
 
-	pendingEffects = append(pendingEffects, func() {
+	ctx.scope.state.pendingEffects = append(ctx.scope.state.pendingEffects, func() {
 		if prevCleanup != nil {
 			prevCleanup()
 		}
@@ -62,13 +56,13 @@ func UseEffect(fn func() func(), deps []any) {
 	})
 }
 
-func queueCleanup(fn func()) {
-	pendingCleanups = append(pendingCleanups, fn)
+func (s *runtimeState) queueCleanup(fn func()) {
+	s.pendingCleanups = append(s.pendingCleanups, fn)
 }
 
-func runCleanups() {
-	cleanups := pendingCleanups
-	pendingCleanups = nil
+func (s *runtimeState) runCleanups() {
+	cleanups := s.pendingCleanups
+	s.pendingCleanups = nil
 	for _, fn := range cleanups {
 		fn()
 	}
@@ -76,8 +70,10 @@ func runCleanups() {
 
 // runEffects executes all effects collected during the last render pass.
 // Called by the runtime after flushing the buffer.
-func runEffects() {
-	for _, fn := range pendingEffects {
+func (s *runtimeState) runEffects() {
+	effects := s.pendingEffects
+	s.pendingEffects = nil
+	for _, fn := range effects {
 		fn()
 	}
 }

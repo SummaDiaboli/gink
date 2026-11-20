@@ -2,9 +2,31 @@ package gink
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/gdamore/tcell/v2"
 )
+
+type runtimeState struct {
+	focusables                []focusable
+	prevFocusables            []focusable
+	focusedIdx                int
+	focusChanged              bool
+	focusBarrier              string
+	inputHandlers             []func(KeyEvent)
+	keyboardHandlers          []func(KeyEvent)
+	clickHandlers             []clickHandler
+	scrollHandlers            []func(delta int) bool
+	activeBindings            []registeredBinding
+	scrollOffset              int
+	scrollContent             int
+	footerHeight              int
+	currentTermSize           TermSize
+	accessibilityHints        map[string]string
+	currentAccessibilityLabel string
+	pendingEffects            []func()
+	pendingCleanups           []func()
+}
 
 type renderer struct {
 	screen     tcell.Screen
@@ -12,7 +34,10 @@ type renderer struct {
 	current    *Buffer // last buffer written to the terminal
 	mu         sync.Mutex
 	dirtyPaths map[string]bool
+	state      runtimeState
 }
+
+var activeRenderer atomic.Pointer[renderer]
 
 // markDirty records that the component at path needs re-rendering and schedules a render pass.
 // Safe to call from any goroutine.

@@ -1,17 +1,5 @@
 package gink
 
-// scrollOffset is the number of rows the global viewport is scrolled down.
-// Zero means the top of content is at the top of the screen.
-var scrollOffset int
-
-// scrollContent is the detected content height from the last render pass,
-// used to clamp the scroll offset.
-var scrollContent int
-
-// footerHeight is the height of the sticky footer (0 when AppShell is not used).
-// Subtracted from the terminal height when computing scroll bounds.
-var footerHeight int
-
 // virtualBufferHeight is the minimum height of the virtual render buffer —
 // a generous upper bound for any practical TUI app.
 const virtualBufferHeight = 512
@@ -68,66 +56,59 @@ func addScrollIndicators(screen *Buffer, offset, contentH int) {
 	}
 }
 
-// scrollUp moves the viewport up by n rows, clamped at zero.
-func scrollUp(n int) {
-	scrollOffset -= n
-	if scrollOffset < 0 {
-		scrollOffset = 0
+func (s *runtimeState) scrollUp(n int) {
+	s.scrollOffset -= n
+	if s.scrollOffset < 0 {
+		s.scrollOffset = 0
 	}
 }
 
-// scrollDown moves the viewport down by n rows, clamped at the content bottom.
-func scrollDown(n int) {
-	scrollOffset += n
-	clampScroll()
+func (s *runtimeState) scrollDown(n int) {
+	s.scrollOffset += n
+	s.clampScroll()
 }
 
-// availableHeight returns the number of screen rows available for scrollable content.
-func availableHeight() int {
-	h := currentTermSize.Height - footerHeight
+func (s *runtimeState) availableHeight() int {
+	h := s.currentTermSize.Height - s.footerHeight
 	if h < 0 {
 		h = 0
 	}
 	return h
 }
 
-// clampScroll ensures scrollOffset stays within [0, max(0, contentH-availH)].
-func clampScroll() {
-	avail := availableHeight()
-	max := scrollContent - avail
+func (s *runtimeState) clampScroll() {
+	avail := s.availableHeight()
+	max := s.scrollContent - avail
 	if max < 0 {
 		max = 0
 	}
-	if scrollOffset > max {
-		scrollOffset = max
+	if s.scrollOffset > max {
+		s.scrollOffset = max
 	}
-	if scrollOffset < 0 {
-		scrollOffset = 0
+	if s.scrollOffset < 0 {
+		s.scrollOffset = 0
 	}
 }
 
-// scrollBy dispatches a scroll delta to the focused scroll handler first;
-// only if none consumes it does the global scroll offset move.
-func scrollBy(delta int) {
-	if dispatchScroll(delta) {
+func (s *runtimeState) scrollBy(delta int) {
+	if s.dispatchScroll(delta) {
 		return
 	}
 	if delta > 0 {
-		scrollDown(delta)
+		s.scrollDown(delta)
 	} else {
-		scrollUp(-delta)
+		s.scrollUp(-delta)
 	}
 }
 
-// scrollToY adjusts scrollOffset so that virtual row y is visible.
-func scrollToY(y int) {
-	avail := availableHeight()
-	if y < scrollOffset {
-		scrollOffset = y
-	} else if y >= scrollOffset+avail {
-		scrollOffset = y - avail + 1
+func (s *runtimeState) scrollToY(y int) {
+	avail := s.availableHeight()
+	if y < s.scrollOffset {
+		s.scrollOffset = y
+	} else if y >= s.scrollOffset+avail {
+		s.scrollOffset = y - avail + 1
 	}
-	if scrollOffset < 0 {
-		scrollOffset = 0
+	if s.scrollOffset < 0 {
+		s.scrollOffset = 0
 	}
 }

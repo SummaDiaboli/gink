@@ -33,6 +33,7 @@ type Reconciler struct {
 	visitedPaths  map[string]bool
 	renderedPaths []string
 	mountedPaths  map[string]bool
+	scope         *renderScope
 }
 
 func NewReconciler(r *renderer) *Reconciler {
@@ -87,7 +88,7 @@ func (rec *Reconciler) pruneUnmounted() {
 				if ctx.slots[i].cleanup != nil {
 					cleanup := ctx.slots[i].cleanup
 					ctx.slots[i].cleanup = nil
-					queueCleanup(cleanup)
+					rec.renderer.state.queueCleanup(cleanup)
 				}
 			}
 			delete(rec.hooks, path)
@@ -106,10 +107,11 @@ func (rec *Reconciler) needsRender(path string) bool {
 	if !cached {
 		return true
 	}
-	if cache.focusedIdx != focusedIdx {
+	state := &rec.renderer.state
+	if cache.focusedIdx != state.focusedIdx {
 		return true
 	}
-	if isFocusedWithinPath(path) != cache.wasFocusedWithin {
+	if state.isFocusedWithinPath(path) != cache.wasFocusedWithin {
 		return true
 	}
 	if rec.dirtySnap[path] {
@@ -148,6 +150,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 	switch el.Type {
 	case "component":
 		fn := el.Props.(func() Element)
+		state := &rec.renderer.state
 
 		if !rec.needsRender(path) {
 			rec.visitCachedPath(path)
@@ -162,81 +165,96 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			}
 			// Restore focusables using relative offsets from cache so nested
 			// components land at the correct absolute position.
+			effX := x
+			effY := y
+			if rec.scope != nil {
+				effX += rec.scope.offsetX
+				effY += rec.scope.offsetY
+			}
 			for _, f := range cache.focusablePaths {
-				focusables = append(focusables, focusable{
+				state.focusables = append(state.focusables, focusable{
 					path: f.path,
-					y:    y + f.y,
-					x:    x + f.x,
+					y:    effY + f.y,
+					x:    effX + f.x,
 					w:    f.w,
 					h:    f.h,
 				})
 			}
-			inputHandlers = append(inputHandlers, cache.inputHandlerCache...)
-			keyboardHandlers = append(keyboardHandlers, cache.keyboardHandlerCache...)
-			clickHandlers = append(clickHandlers, cache.clickHandlerCache...)
-			activeBindings = append(activeBindings, cache.bindingCache...)
-			scrollHandlers = append(scrollHandlers, cache.scrollHandlerCache...)
+			state.inputHandlers = append(state.inputHandlers, cache.inputHandlerCache...)
+			state.keyboardHandlers = append(state.keyboardHandlers, cache.keyboardHandlerCache...)
+			state.clickHandlers = append(state.clickHandlers, cache.clickHandlerCache...)
+			state.activeBindings = append(state.activeBindings, cache.bindingCache...)
+			state.scrollHandlers = append(state.scrollHandlers, cache.scrollHandlerCache...)
 			if cache.footerBuf != nil {
 				rec.FooterBuf = cache.footerBuf
 			}
 			return cache.w, cache.h
 		}
 
-		// Snapshot global slice lengths before rendering so we can extract
+		// Snapshot runtime slice lengths before rendering so we can extract
 		// the entries this subtree adds.
-		focusablesBefore := len(focusables)
-		inputsBefore := len(inputHandlers)
-		keyboardsBefore := len(keyboardHandlers)
-		clicksBefore := len(clickHandlers)
-		bindingsBefore := len(activeBindings)
-		scrollsBefore := len(scrollHandlers)
+		focusablesBefore := len(state.focusables)
+		inputsBefore := len(state.inputHandlers)
+		keyboardsBefore := len(state.keyboardHandlers)
+		clicksBefore := len(state.clickHandlers)
+		bindingsBefore := len(state.activeBindings)
+		scrollsBefore := len(state.scrollHandlers)
 
 		pathsBefore := len(rec.renderedPaths)
 		rec.visitPath(path)
 
-		activeY = y
-		activeX = x
-		activePath = path
+		parentScope := rec.scope
+		scope := &renderScope{path: path, x: x, y: y, state: state}
+		if parentScope != nil {
+			scope.offsetX = parentScope.offsetX
+			scope.offsetY = parentScope.offsetY
+		}
+		rec.scope = scope
 		activeCtx = rec.hooksFor(path)
+		activeCtx.scope = scope
 		child := fn()
 		activeCtx.checkHookCount()
+		activeCtx.scope = nil
 		activeCtx = nil
-		activePath = ""
 
 		w, h := rec.renderElement(child, buf, x, y, path+"/0")
+		rec.scope = parentScope
 
 		// Backfill component dimensions into its own focusable entry so the
 		// hit-tester has accurate bounds for mouse click dispatch.
-		for i := focusablesBefore; i < len(focusables); i++ {
-			if focusables[i].path == path {
-				focusables[i].w = w
-				focusables[i].h = h
+		for i := focusablesBefore; i < len(state.focusables); i++ {
+			if state.focusables[i].path == path {
+				state.focusables[i].w = w
+				state.focusables[i].h = h
 				break
 			}
 		}
 
-		// Build cell cache. Store focusable positions relative to (x, y) so
-		// they can be restored correctly even if the component moves later.
-		relFocusables := make([]focusable, len(focusables)-focusablesBefore)
-		for i, f := range focusables[focusablesBefore:] {
+		// Build cell cache. Store focusable positions relative to the
+		// component's effective position so they can be restored correctly
+		// even if the component moves later.
+		effX := x + scope.offsetX
+		effY := y + scope.offsetY
+		relFocusables := make([]focusable, len(state.focusables)-focusablesBefore)
+		for i, f := range state.focusables[focusablesBefore:] {
 			relFocusables[i] = focusable{
 				path: f.path,
-				y:    f.y - y,
-				x:    f.x - x,
+				y:    f.y - effY,
+				x:    f.x - effX,
 				w:    f.w,
 				h:    f.h,
 			}
 		}
 		cache := componentCache{
-			w: w, h: h, focusedIdx: focusedIdx,
+			w: w, h: h, focusedIdx: state.focusedIdx,
 			paths:                append([]string(nil), rec.renderedPaths[pathsBefore:]...),
-			wasFocusedWithin:     isFocusedWithinPath(path),
+			wasFocusedWithin:     state.isFocusedWithinPath(path),
 			focusablePaths:       relFocusables,
-			inputHandlerCache:    append([]func(KeyEvent){}, inputHandlers[inputsBefore:]...),
-			keyboardHandlerCache: append([]func(KeyEvent){}, keyboardHandlers[keyboardsBefore:]...),
-			clickHandlerCache:    append([]clickHandler{}, clickHandlers[clicksBefore:]...),
-			bindingCache:         append([]registeredBinding{}, activeBindings[bindingsBefore:]...),
-			scrollHandlerCache:   append([]func(delta int) bool{}, scrollHandlers[scrollsBefore:]...),
+			inputHandlerCache:    append([]func(KeyEvent){}, state.inputHandlers[inputsBefore:]...),
+			keyboardHandlerCache: append([]func(KeyEvent){}, state.keyboardHandlers[keyboardsBefore:]...),
+			clickHandlerCache:    append([]clickHandler{}, state.clickHandlers[clicksBefore:]...),
+			bindingCache:         append([]registeredBinding{}, state.activeBindings[bindingsBefore:]...),
+			scrollHandlerCache:   append([]func(delta int) bool{}, state.scrollHandlers[scrollsBefore:]...),
 			cells:                make([][]Cell, h),
 			footerBuf:            rec.FooterBuf,
 		}
@@ -367,11 +385,15 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		// Push the real screen offset so that any UseFocus calls inside the
 		// child record the correct absolute position for hit-testing.
 		subBuf := NewBuffer(buf.Width, buf.Height)
-		renderOffsetX += x
-		renderOffsetY += y
+		if rec.scope != nil {
+			rec.scope.offsetX += x
+			rec.scope.offsetY += y
+		}
 		cw, ch := rec.renderElement(el.Children[0], subBuf, 0, 0, path+"/0")
-		renderOffsetX -= x
-		renderOffsetY -= y
+		if rec.scope != nil {
+			rec.scope.offsetX -= x
+			rec.scope.offsetY -= y
+		}
 
 		// Compute constrained output dimensions.
 		w, h := cw, ch

@@ -16,8 +16,8 @@ var pendingEffects []func()
 //   - []any{a}  — runs when a changes between renders (React: [a])
 //
 // fn may return a cleanup function. The cleanup runs before the next time the
-// effect fires (or when the component unmounts), making it the right place to
-// stop timers, cancel goroutines, or close connections.
+// effect fires, making it the right place to stop timers, cancel goroutines,
+// or close connections. There is currently no unmount cleanup.
 //
 //	// Run once on mount
 //	gink.UseEffect(func() func() {

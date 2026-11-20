@@ -14,6 +14,7 @@ Inspired by [Ink](https://github.com/vadimdemedes/ink) (React for CLI in JavaScr
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Screenshots](#screenshots)
 - [Core Concepts](#core-concepts)
 - [Layout](#layout)
 - [Styling](#styling)
@@ -74,6 +75,17 @@ func main() {
     }
 }
 ```
+
+---
+
+## Screenshots
+
+[![Animated Gink dashboard demo](docs/assets/dashboard.gif)](docs/assets/dashboard.png)
+
+![Gink contact form built with NewInput and NewButton](docs/assets/form.png)
+
+Screenshots are generated from the example apps with
+`GINK_SCREENSHOTS=1 go test ./examples/dashboard ./examples/form -run Screenshot -v`.
 
 ---
 

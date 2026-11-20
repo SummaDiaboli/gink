@@ -2,9 +2,35 @@
 
 ## Layout Primitives
 
+- Flexbox layout (flex-grow/shrink/wrap/justify-content/align-items) —
+  **deferred**; see `docs/flexbox-layout-plan.md` for the Phase-0 scope
+  decision and phased approach
+- Percentage-based sizing for `Width`/`Height`/`Constrain` (e.g. `50%`
+  of parent) — currently only fixed integer cells
+
 ---
 
 ## Hooks
+
+---
+
+## Testing
+
+- `_test.go` coverage for `ref.go` and `effect.go` (`UseRef`,
+  `UseEffect` — core hook primitives, currently untested directly)
+- `_test.go` coverage for `spinner.go`, `textinput.go` (backs
+  `NewInput`), `interval.go`, `termsize.go`, `layout.go`
+
+---
+
+## Examples
+
+- A "kitchen sink" or per-component example demonstrating `NewModal`,
+  `NewMenu`, `NewTree`, `NewMultiSelect`, `NewRadioGroup`, `NewTabs`,
+  `KeybindingHelp`, `UseToast` — all implemented and unit-tested but not
+  shown in any example app
+- A plugin-system example demonstrating `NewPlugin`/`NewPluginCmd`
+  end-to-end (Go host + JS or Python plugin via the existing SDKs)
 
 ---
 
@@ -77,3 +103,5 @@
 - `KeybindingHelp` — renders active binding list; mount in modal or footer for `?` help overlay ✓
 - `UseClipboard` — convenience helper for system clipboard read/write via `atotto/clipboard` ✓
 - `Ctrl+V` paste — built into `NewInput` (newlines collapsed) and `NewTextArea` (multi-line preserved) ✓
+- `go mod tidy` — direct deps and `go.sum` cleaned up ✓
+- README screenshots generated from example apps via `internal/readmeimg` ✓

@@ -154,3 +154,18 @@ func TestTextWrapped_wideRunesWrapByDisplayWidth(t *testing.T) {
 		t.Errorf("line 1: expected '世界', got %q", h.Line(1))
 	}
 }
+
+func TestTextWrapped_zwjEmojiNotSplitAcrossLines(t *testing.T) {
+	cluster := "👨‍👩‍👧‍👦"
+	h := gink.NewHarnessSize(t, func() gink.Element {
+		return gink.TextWrapped(cluster+"X", 2)
+	}, 4, 3)
+	defer h.Close()
+
+	if got := h.Line(0); got != cluster {
+		t.Errorf("line 0 = %q, want %q", got, cluster)
+	}
+	if got := h.Line(1); got != "X" {
+		t.Errorf("line 1 = %q, want %q", got, "X")
+	}
+}

@@ -1,6 +1,7 @@
 package gink
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
@@ -136,5 +137,79 @@ func TestSetBufferCell_skipsWideClusterThatDoesNotFit(t *testing.T) {
 	cell := buf.Cells[0][3]
 	if cell.Grapheme != " " || cell.Width != 1 || cell.Continuation {
 		t.Errorf("cell 3: got %+v, want blank", cell)
+	}
+}
+
+func TestCellRunes(t *testing.T) {
+	tests := []struct {
+		name     string
+		cell     Cell
+		wantMain rune
+		wantComb []rune
+	}{
+		{name: "no grapheme", cell: Cell{Rune: 'A'}, wantMain: 'A'},
+		{name: "single rune", cell: Cell{Rune: '界', Grapheme: "界"}, wantMain: '界'},
+		{name: "combining", cell: Cell{Rune: 'e', Grapheme: "e\u0301"}, wantMain: 'e', wantComb: []rune{'\u0301'}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			main, comb := cellRunes(tt.cell)
+			if main != tt.wantMain {
+				t.Errorf("main = %q, want %q", main, tt.wantMain)
+			}
+			if !reflect.DeepEqual(comb, tt.wantComb) {
+				t.Errorf("comb = %q, want %q", comb, tt.wantComb)
+			}
+		})
+	}
+}
+
+func TestClearBufferCellSpan_walksBackFromContinuation(t *testing.T) {
+	buf := NewBuffer(4, 1)
+	setBufferGrapheme(buf, 0, 0, "界", tcell.StyleDefault)
+
+	clearBufferCellSpan(buf, 1, 0)
+
+	for x := 0; x < 2; x++ {
+		cell := buf.Cells[0][x]
+		if cell.Rune != ' ' || cell.Grapheme != " " || cell.Width != 1 || cell.Continuation {
+			t.Errorf("cell %d: got %+v, want blank", x, cell)
+		}
+	}
+}
+
+func TestSetBufferGrapheme_multiRuneCluster(t *testing.T) {
+	buf := NewBuffer(4, 1)
+	cluster := "👨‍👩‍👧‍👦"
+
+	if width := setBufferGrapheme(buf, 0, 0, cluster, tcell.StyleDefault); width != 2 {
+		t.Fatalf("width = %d, want 2", width)
+	}
+	if got := buf.Cells[0][0].Grapheme; got != cluster {
+		t.Errorf("base grapheme = %q, want %q", got, cluster)
+	}
+	if got := buf.Cells[0][0].Rune; got != []rune(cluster)[0] {
+		t.Errorf("base rune = %q, want %q", got, []rune(cluster)[0])
+	}
+	if buf.Cells[0][0].Width != 2 {
+		t.Errorf("base width = %d, want 2", buf.Cells[0][0].Width)
+	}
+	if !buf.Cells[0][1].Continuation {
+		t.Error("cell 1 should be a continuation cell")
+	}
+}
+
+func TestWriteBufferText_reportsFullWidthWhenClipped(t *testing.T) {
+	buf := NewBuffer(3, 1)
+
+	if width := writeBufferText(buf, 0, 0, "世界X", tcell.StyleDefault); width != 5 {
+		t.Errorf("width = %d, want 5", width)
+	}
+	if got := buf.Cells[0][0].Grapheme; got != "世" {
+		t.Errorf("cell 0 = %q, want %q", got, "世")
+	}
+	if got := buf.Cells[0][2].Grapheme; got != " " {
+		t.Errorf("cell 2 = %q, want blank", got)
 	}
 }

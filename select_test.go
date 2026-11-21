@@ -194,6 +194,23 @@ func TestNewSelect_clickRightNoOpAtLastOption(t *testing.T) {
 	}
 }
 
+func TestNewSelect_clickWideValueUsesDisplayColumns(t *testing.T) {
+	opts := []string{"A", "世界", "C"}
+	var lastVal string
+	h := NewHarness(t, func() Element {
+		val, setVal := UseState("世界")
+		lastVal = val
+		return C(NewSelect(opts, val, func(v string) { setVal(v) }))
+	})
+	defer h.Close()
+
+	h.Click(5, 0)
+
+	if lastVal != "A" {
+		t.Errorf("click left half = %q, want A", lastVal)
+	}
+}
+
 func TestNewSelect_unknownValueDefaultsToFirst(t *testing.T) {
 	// When value is not in options, Down should behave as if at index 0.
 	h, lastVal := selectHarness(t, "Unknown")

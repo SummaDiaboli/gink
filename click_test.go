@@ -150,6 +150,46 @@ func TestMouseClick_wideRuneCountsAsTwoColumns(t *testing.T) {
 	}
 }
 
+func TestMouseClick_combiningMarkDoesNotExtendBounds(t *testing.T) {
+	called := false
+	h := gink.NewHarness(t, func() gink.Element {
+		return gink.C(func() gink.Element {
+			gink.UseFocus()
+			gink.UseClick(func(x, y int) { called = true })
+			return gink.Text("e\u0301")
+		})
+	})
+	defer h.Close()
+
+	h.Click(1, 0)
+	if called {
+		t.Error("continuation-like column should not fire for combining mark")
+	}
+
+	h.Click(0, 0)
+	if !called {
+		t.Error("combining-mark cluster should fire on its only display column")
+	}
+}
+
+func TestMouseClick_emojiContinuationColumnFires(t *testing.T) {
+	called := false
+	h := gink.NewHarness(t, func() gink.Element {
+		return gink.C(func() gink.Element {
+			gink.UseFocus()
+			gink.UseClick(func(x, y int) { called = true })
+			return gink.Text("👍🏽")
+		})
+	})
+	defer h.Close()
+
+	h.Click(1, 0)
+
+	if !called {
+		t.Error("emoji continuation column should fire click")
+	}
+}
+
 func TestMouseClick_useClickNotCalledWhenClickMisses(t *testing.T) {
 	called := false
 	h := gink.NewHarness(t, func() gink.Element {

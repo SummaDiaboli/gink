@@ -194,3 +194,29 @@ func TestBorderWithTitle_narrowChildDoesNotPanic(t *testing.T) {
 		t.Errorf("top border: got %q, want %q", h.Line(0), "┌─  ─┐")
 	}
 }
+
+func TestBorderWithTitle_wideTitleUsesDisplayColumns(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return BorderWithTitle("世界", Text("世界世界世界世界"))
+	}, 12, 3)
+	defer h.Close()
+
+	if got := h.CellGrapheme(0, 0); got != "┌" {
+		t.Errorf("cell 0 = %q, want %q", got, "┌")
+	}
+	if got := h.CellGrapheme(1, 0); got != "─" {
+		t.Errorf("cell 1 = %q, want %q", got, "─")
+	}
+	if got := h.CellGrapheme(2, 0); got != " " {
+		t.Errorf("cell 2 = %q, want blank", got)
+	}
+	if got := h.CellGrapheme(3, 0); got != "世" {
+		t.Errorf("cell 3 = %q, want %q", got, "世")
+	}
+	if got := h.CellWidth(3, 0); got != 2 {
+		t.Errorf("cell 3 width = %d, want 2", got)
+	}
+	if got := h.CellGrapheme(4, 0); got != "" {
+		t.Errorf("cell 4 = %q, want empty", got)
+	}
+}

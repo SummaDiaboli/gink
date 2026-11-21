@@ -13,9 +13,9 @@ type testMenuItem struct {
 
 var menuItems = []MenuItem{
 	{Label: "New File", Key: 'n'},
-	{Label: "Open",     Key: 'o'},
-	{Label: "Save",     Key: 's'},
-	{Label: "Quit",     Key: 'q', Disabled: true},
+	{Label: "Open", Key: 'o'},
+	{Label: "Save", Key: 's'},
+	{Label: "Quit", Key: 'q', Disabled: true},
 }
 
 // menuHarness creates a Harness with a NewMenu. lastSel receives the most
@@ -55,6 +55,29 @@ func TestNewMenu_rendersKeyHint(t *testing.T) {
 				}
 				break
 			}
+		}
+	}
+}
+
+func TestNewMenu_wideLabelsAlignRowsByDisplayWidth(t *testing.T) {
+	items := []MenuItem{
+		{Label: "界", Key: 'z'},
+		{Label: "Open", Key: 'o'},
+		{Label: "世界", Key: 'x'},
+	}
+	h := NewHarness(t, func() Element {
+		return C(NewMenu(items, func(MenuItem) {}, func() {}))
+	})
+	defer h.Close()
+
+	wantWidth := displayWidth(h.Line(1))
+	for i, item := range items {
+		line := h.Line(i + 1)
+		if got := displayWidth(line); got != wantWidth {
+			t.Errorf("row %d width = %d, want %d (%q)", i, got, wantWidth, line)
+		}
+		if !strings.ContainsRune(line, item.Key) {
+			t.Errorf("row %d missing key %q: %q", i, item.Key, line)
 		}
 	}
 }

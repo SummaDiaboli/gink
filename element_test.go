@@ -132,6 +132,48 @@ func TestText_combiningMarkDoesNotAdvance(t *testing.T) {
 	}
 }
 
+func TestText_zwjEmojiUsesSingleCluster(t *testing.T) {
+	cluster := "👨‍👩‍👧‍👦"
+	h := NewHarnessSize(t, func() Element {
+		return Row(Text(cluster), Text("X"))
+	}, 8, 3)
+	defer h.Close()
+
+	if got := h.CellGrapheme(0, 0); got != cluster {
+		t.Errorf("cell 0: got %q, want %q", got, cluster)
+	}
+	if got := h.CellWidth(0, 0); got != 2 {
+		t.Errorf("cell 0 width: got %d, want 2", got)
+	}
+	if got := h.CellGrapheme(1, 0); got != "" {
+		t.Errorf("cell 1: got %q, want empty", got)
+	}
+	if got := h.CellGrapheme(2, 0); got != "X" {
+		t.Errorf("cell 2: got %q, want %q", got, "X")
+	}
+}
+
+func TestText_skinToneEmojiUsesSingleCluster(t *testing.T) {
+	cluster := "👍🏽"
+	h := NewHarnessSize(t, func() Element {
+		return Row(Text(cluster), Text("X"))
+	}, 8, 3)
+	defer h.Close()
+
+	if got := h.CellGrapheme(0, 0); got != cluster {
+		t.Errorf("cell 0: got %q, want %q", got, cluster)
+	}
+	if got := h.CellWidth(0, 0); got != 2 {
+		t.Errorf("cell 0 width: got %d, want 2", got)
+	}
+	if got := h.CellGrapheme(1, 0); got != "" {
+		t.Errorf("cell 1: got %q, want empty", got)
+	}
+	if got := h.CellGrapheme(2, 0); got != "X" {
+		t.Errorf("cell 2: got %q, want %q", got, "X")
+	}
+}
+
 // ── Box ──────────────────────────────────────────────────────────────────────
 
 func TestBox_stacksChildrenVertically(t *testing.T) {

@@ -84,3 +84,39 @@ func TestDivider_fillsRemainingRowWidth(t *testing.T) {
 		t.Errorf("got %q, want %q", h.Line(0), want)
 	}
 }
+
+func TestDividerWithLabel_wideLabelCentersByColumns(t *testing.T) {
+	h := NewHarnessSize(t, func() Element { return C(DividerWithLabel("世界")) }, 10, 3)
+	defer h.Close()
+
+	if got := h.Line(0); got != "── 世界 ──" {
+		t.Errorf("line = %q, want %q", got, "── 世界 ──")
+	}
+	if got := h.CellGrapheme(3, 0); got != "世" {
+		t.Errorf("cell 3 = %q, want %q", got, "世")
+	}
+	if got := h.CellWidth(3, 0); got != 2 {
+		t.Errorf("cell 3 width = %d, want 2", got)
+	}
+	if got := h.CellGrapheme(4, 0); got != "" {
+		t.Errorf("cell 4 = %q, want empty", got)
+	}
+}
+
+func TestDividerWithLabel_narrowWideLabelDoesNotSplitCluster(t *testing.T) {
+	h := NewHarnessSize(t, func() Element { return C(DividerWithLabel("世界")) }, 5, 3)
+	defer h.Close()
+
+	if displayWidth(h.Line(0)) > 5 {
+		t.Errorf("line width = %d, exceeds 5 (%q)", displayWidth(h.Line(0)), h.Line(0))
+	}
+	if got := h.CellGrapheme(1, 0); got != "世" {
+		t.Errorf("cell 1 = %q, want %q", got, "世")
+	}
+	if got := h.CellGrapheme(2, 0); got != "" {
+		t.Errorf("cell 2 = %q, want empty", got)
+	}
+	if got := h.CellGrapheme(3, 0); got != "界" {
+		t.Errorf("cell 3 = %q, want %q", got, "界")
+	}
+}

@@ -167,6 +167,30 @@ func TestNewInput_backspaceDeletesLastCharacter(t *testing.T) {
 	}
 }
 
+func TestNewInput_backspaceDeletesGrapheme(t *testing.T) {
+	var value string
+	h := NewHarness(t, func() Element {
+		v, s := UseState("")
+		value = v
+		return C(NewInput(v, func(next string) {
+			value = next
+			s(next)
+		}))
+	})
+	defer h.Close()
+
+	h.SendRune('e')
+	h.SendRune('\u0301')
+	if value != "e\u0301" {
+		t.Fatalf("after typing combining mark: got %q, want %q", value, "e\u0301")
+	}
+
+	h.Backspace()
+	if value != "" {
+		t.Errorf("after Backspace: got %q, want empty", value)
+	}
+}
+
 func TestNewInput_backspaceOnEmptyIsNoop(t *testing.T) {
 	h := NewHarness(t, func() Element {
 		v, s := UseState("")

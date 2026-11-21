@@ -34,6 +34,33 @@ func TestPartialRender_firstRenderCallsAllComponents(t *testing.T) {
 	}
 }
 
+func TestPartialRender_layoutWidthChangeRerendersWideText(t *testing.T) {
+	var setA func(string)
+	countB := 0
+
+	compA := func() Element {
+		val, set := UseState("界")
+		setA = set
+		return Text(val)
+	}
+	compB := callCounter(&countB, func() Element { return Text("X") })
+
+	h := NewHarnessSize(t, func() Element {
+		return Row(C(compA), C(compB))
+	}, 8, 3)
+	defer h.Close()
+
+	setA("界界")
+	h.Render()
+
+	if h.Line(0) != "界界X" {
+		t.Errorf("line 0: got %q, want %q", h.Line(0), "界界X")
+	}
+	if got := h.CellGrapheme(4, 0); got != "X" {
+		t.Errorf("cell 4: got %q, want %q", got, "X")
+	}
+}
+
 func TestPartialRender_cleanSiblingNotCalled(t *testing.T) {
 	var setA func(int)
 	countB := 0

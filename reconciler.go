@@ -329,9 +329,14 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			cache := rec.cellCache[path]
 			for row := 0; row < cache.h; row++ {
 				for col := 0; col < cache.w; col++ {
-					if y+row < buf.Height && x+col < buf.Width {
-						buf.Cells[y+row][x+col] = cache.cells[row][col]
+					if y+row >= 0 && y+row < buf.Height && x+col >= 0 && x+col < buf.Width {
+						buf.Cells[y+row][x+col] = blankDefaultCell()
 					}
+				}
+			}
+			for row := 0; row < cache.h; row++ {
+				for col := 0; col < cache.w; col++ {
+					setBufferCell(buf, x+col, y+row, cache.cells[row][col])
 				}
 			}
 			// Restore focusables using relative offsets from cache so nested
@@ -461,36 +466,24 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		if width <= 0 {
 			return 0, 0
 		}
-		runes := []rune(strings.Repeat("─", width))
-		label := []rune(props.Label)
-		if len(label) > 0 {
-			dashes := width - len(label)
-			if dashes >= 2 {
-				left := dashes / 2
-				right := dashes - left
-				runes = []rune(strings.Repeat("─", left) + props.Label + strings.Repeat("─", right))
+		line := strings.Repeat("─", width)
+		if labelW := displayWidth(props.Label); labelW > 0 {
+			if labelW <= width-2 {
+				left := (width - labelW) / 2
+				right := width - labelW - left
+				line = strings.Repeat("─", left) + props.Label + strings.Repeat("─", right)
 			} else {
-				runes = label
+				line = truncateToWidth(props.Label, width)
 			}
 		}
 		style := props.Style.toTcell()
-		for i, ch := range runes {
-			if x+i < buf.Width && y < buf.Height {
-				buf.Cells[y][x+i] = Cell{Rune: ch, Style: style}
-			}
-		}
+		writeBufferText(buf, x, y, line, style)
 		return width, 1
 
 	case "text":
 		props := el.Props.(TextProps)
 		style := props.Style.toTcell()
-		runes := []rune(props.Content)
-		for i, ch := range runes {
-			if x+i < buf.Width && y < buf.Height {
-				buf.Cells[y][x+i] = Cell{Rune: ch, Style: style}
-			}
-		}
-		return len(runes), 1
+		return writeBufferText(buf, x, y, props.Content, style), 1
 
 	case "box":
 		props, _ := el.Props.(BoxProps)
@@ -612,10 +605,10 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 			if indCol < buf.Width {
 				indStyle := NewStyle().Foreground(ColorBrightWhite).toTcell()
 				if offset > 0 && y < buf.Height {
-					buf.Cells[y][indCol] = Cell{Rune: '↑', Style: indStyle}
+					setBufferRune(buf, indCol, y, '↑', indStyle)
 				}
 				if offset+props.Height < contentH && y+props.Height-1 < buf.Height {
-					buf.Cells[y+props.Height-1][indCol] = Cell{Rune: '↓', Style: indStyle}
+					setBufferRune(buf, indCol, y+props.Height-1, '↓', indStyle)
 				}
 			}
 		}
@@ -715,11 +708,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 		childW, childH := rec.renderElement(el.Children[0], buf, x+1, y+1, path+"/0")
 
 		// Draw top border.
-		for i, r := range []rune(buildTopBorder(props.Title, childW)) {
-			if x+i < buf.Width && y < buf.Height {
-				buf.Cells[y][x+i] = Cell{Rune: r, Style: style}
-			}
-		}
+		writeBufferText(buf, x, y, buildTopBorder(props.Title, childW), style)
 
 		// Draw left and right vertical edges.
 		for row := 0; row < childH; row++ {
@@ -733,11 +722,7 @@ func (rec *Reconciler) renderElement(el Element, buf *Buffer, x, y int, path str
 
 		// Draw bottom border.
 		bottom := "└" + strings.Repeat("─", childW) + "┘"
-		for i, r := range []rune(bottom) {
-			if x+i < buf.Width && y+childH+1 < buf.Height {
-				buf.Cells[y+childH+1][x+i] = Cell{Rune: r, Style: style}
-			}
-		}
+		writeBufferText(buf, x, y+childH+1, bottom, style)
 
 		return childW + 2, childH + 2
 	}

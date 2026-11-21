@@ -44,7 +44,7 @@ func NewTabs(tabs []string, active string, onChange func(string), styles ...Styl
 		col := 0
 		for i, tab := range tabs {
 			offsets[i] = col
-			col += 1 + len([]rune(tab)) + 1 // space + label + space
+			col += 1 + displayWidth(tab) + 1 // space + label + space
 			if i < len(tabs)-1 {
 				col++ // separator
 			}
@@ -54,7 +54,7 @@ func NewTabs(tabs []string, active string, onChange func(string), styles ...Styl
 			// Find which tab was clicked by checking column ranges.
 			for i, tab := range tabs {
 				start := offsets[i]
-				end := start + 1 + len([]rune(tab)) + 1
+				end := start + 1 + displayWidth(tab) + 1
 				if localX >= start && localX < end {
 					onChange(tab)
 					return

@@ -124,13 +124,13 @@ func TestTextWrapped_correctHeightInLayout(t *testing.T) {
 	}
 }
 
-// TestTextWrapped_unicodeCharacters verifies that wrapping counts runes, not
-// bytes, so multi-byte characters are handled correctly.
+// TestTextWrapped_unicodeCharacters verifies that wrapping counts display
+// columns, so wide multi-byte characters are handled correctly.
 func TestTextWrapped_unicodeCharacters(t *testing.T) {
-	h := gink.NewHarness(t, func() gink.Element {
-		// Each emoji is 1 rune; "😀😀😀" = 3 runes, maxWidth = 2
+	h := gink.NewHarnessSize(t, func() gink.Element {
+		// Each emoji is 2 columns; maxWidth = 4 fits two emojis per line.
 		return gink.TextWrapped("😀😀 😀😀", 4)
-	})
+	}, 4, 3)
 	defer h.Close()
 
 	if h.Line(0) != "😀😀" {
@@ -138,5 +138,19 @@ func TestTextWrapped_unicodeCharacters(t *testing.T) {
 	}
 	if h.Line(1) != "😀😀" {
 		t.Errorf("line 1: expected '😀😀', got %q", h.Line(1))
+	}
+}
+
+func TestTextWrapped_wideRunesWrapByDisplayWidth(t *testing.T) {
+	h := gink.NewHarnessSize(t, func() gink.Element {
+		return gink.TextWrapped("世界世界", 4)
+	}, 4, 3)
+	defer h.Close()
+
+	if h.Line(0) != "世界" {
+		t.Errorf("line 0: expected '世界', got %q", h.Line(0))
+	}
+	if h.Line(1) != "世界" {
+		t.Errorf("line 1: expected '世界', got %q", h.Line(1))
 	}
 }

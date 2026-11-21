@@ -71,6 +71,20 @@ func TestTable_columnWidthFitsContent(t *testing.T) {
 	}
 }
 
+func TestTable_wideRunesSizeColumnsByDisplayWidth(t *testing.T) {
+	cols := []Column{{Header: "名"}, {Header: "状态"}}
+	rows := [][]string{{"世界", "好"}}
+	h := NewHarnessSize(t, func() Element { return Table(cols, rows) }, 20, 6)
+	defer h.Close()
+
+	if h.Line(0) != "┌──────┬──────┐" {
+		t.Errorf("top border: got %q, want %q", h.Line(0), "┌──────┬──────┐")
+	}
+	if !h.Contains("世界") || !h.Contains("好") {
+		t.Errorf("wide content missing; lines: %v", h.Lines())
+	}
+}
+
 func TestTable_minWidthExpandsColumn(t *testing.T) {
 	// Header "ID" (2) and content "01" (2) are both narrower than MinWidth=10.
 	// Column width = 10. Top border: ┌ + ─×12 + ┐ = 14 chars.

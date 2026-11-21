@@ -3,8 +3,11 @@ package gink
 import "github.com/gdamore/tcell/v2"
 
 type Cell struct {
-	Rune  rune
-	Style tcell.Style
+	Rune         rune
+	Grapheme     string
+	Width        int
+	Continuation bool
+	Style        tcell.Style
 }
 
 type Buffer struct {
@@ -18,10 +21,29 @@ func NewBuffer(w, h int) *Buffer {
 	for i := range cells {
 		cells[i] = make([]Cell, w)
 		for j := range cells[i] {
-			cells[i][j] = Cell{Rune: ' ', Style: tcell.StyleDefault}
+			cells[i][j] = Cell{
+				Rune:     ' ',
+				Grapheme: " ",
+				Width:    1,
+				Style:    tcell.StyleDefault,
+			}
 		}
 	}
 	return &Buffer{Width: w, Height: h, Cells: cells}
+}
+
+func cellRunes(cell Cell) (rune, []rune) {
+	if cell.Grapheme == "" {
+		return cell.Rune, nil
+	}
+	runes := []rune(cell.Grapheme)
+	if len(runes) == 0 {
+		return cell.Rune, nil
+	}
+	if len(runes) == 1 {
+		return runes[0], nil
+	}
+	return runes[0], runes[1:]
 }
 
 // CellUpdate describes a single cell that needs to be written to the terminal.

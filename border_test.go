@@ -183,3 +183,14 @@ func TestBorderWithTitle_appliesStyleToBorderAndTitle(t *testing.T) {
 		t.Errorf("title cell (3,0): expected border style, got %v", got)
 	}
 }
+
+func TestBorderWithTitle_narrowChildDoesNotPanic(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return BorderWithTitle("世界", Text(""))
+	}, 8, 3)
+	defer h.Close()
+
+	if h.Line(0) != "┌─  ─┐" {
+		t.Errorf("top border: got %q, want %q", h.Line(0), "┌─  ─┐")
+	}
+}

@@ -83,6 +83,30 @@ func TestDiff_noChanges(t *testing.T) {
 	}
 }
 
+func TestBuffer_wideGraphemeMetadata(t *testing.T) {
+	buf := NewBuffer(3, 1)
+	style := NewStyle().Bold().toTcell()
+
+	width := setBufferGrapheme(buf, 0, 0, "界", style)
+	if width != 2 {
+		t.Fatalf("width: got %d, want 2", width)
+	}
+	if got := buf.Cells[0][0].Grapheme; got != "界" {
+		t.Errorf("base grapheme: got %q, want %q", got, "界")
+	}
+	if buf.Cells[0][0].Width != 2 || buf.Cells[0][0].Continuation {
+		t.Errorf("base cell metadata: got %+v", buf.Cells[0][0])
+	}
+	if !buf.Cells[0][1].Continuation {
+		t.Errorf("cell 1 should be a continuation cell")
+	}
+
+	updates := Diff(NewBuffer(3, 1), buf)
+	if len(updates) != 2 {
+		t.Errorf("updates: got %d, want 2", len(updates))
+	}
+}
+
 func TestDiff_sizeChange_returnsAllNextCells(t *testing.T) {
 	prev := NewBuffer(5, 3)
 	next := NewBuffer(8, 4)
@@ -101,6 +125,16 @@ func TestDiff_styleChange(t *testing.T) {
 
 	updates := Diff(prev, next)
 	if len(updates) != 1 {
-		t.Errorf("style change: got %d updates, want 1", len(updates))
+		t.Errorf("style change: got %d, want 1", len(updates))
+	}
+}
+
+func TestSetBufferCell_skipsWideClusterThatDoesNotFit(t *testing.T) {
+	buf := NewBuffer(4, 1)
+	setBufferCell(buf, 3, 0, Cell{Rune: '界', Grapheme: "界", Width: 2})
+
+	cell := buf.Cells[0][3]
+	if cell.Grapheme != " " || cell.Width != 1 || cell.Continuation {
+		t.Errorf("cell 3: got %+v, want blank", cell)
 	}
 }

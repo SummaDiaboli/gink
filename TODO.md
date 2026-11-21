@@ -112,3 +112,4 @@
 - Per-renderer runtime state with isolated hooks, focus, scroll, effects, and context ✓
 - `UseInterval` callback race fix ✓
 - Non-flex layout measurement pass — divider fill width, exact ScrollView height, layout-aware cache invalidation ✓
+- Display-width correctness — `uniseg` grapheme clusters, wide CJK/emoji cells, combining marks, display-column wrapping/clicks ✓

@@ -121,11 +121,18 @@ func (h *Harness) WheelUp() { h.t.Helper(); h.doScroll(-wheelDelta) }
 func (h *Harness) Lines() []string {
 	rows := make([]string, h.buf.Height)
 	for y, row := range h.buf.Cells {
-		runes := make([]rune, h.buf.Width)
-		for x, cell := range row {
-			runes[x] = cell.Rune
+		var b strings.Builder
+		for _, cell := range row {
+			if cell.Continuation {
+				continue
+			}
+			if cell.Grapheme != "" {
+				b.WriteString(cell.Grapheme)
+				continue
+			}
+			b.WriteRune(cell.Rune)
 		}
-		rows[y] = strings.TrimRight(string(runes), " ")
+		rows[y] = strings.TrimRight(b.String(), " ")
 	}
 	return rows
 }
@@ -138,6 +145,32 @@ func (h *Harness) Line(y int) string {
 		return ""
 	}
 	return lines[y]
+}
+
+// CellGrapheme returns the grapheme cluster displayed at column x, row y.
+// Continuation columns return an empty string; out-of-bounds columns and rows
+// also return an empty string.
+func (h *Harness) CellGrapheme(x, y int) string {
+	if y < 0 || y >= h.buf.Height || x < 0 || x >= h.buf.Width {
+		return ""
+	}
+	cell := h.buf.Cells[y][x]
+	if cell.Continuation {
+		return ""
+	}
+	if cell.Grapheme != "" {
+		return cell.Grapheme
+	}
+	return string(cell.Rune)
+}
+
+// CellWidth returns the display width of the cell at column x, row y.
+// Continuation cells and out-of-bounds coordinates return 0.
+func (h *Harness) CellWidth(x, y int) int {
+	if y < 0 || y >= h.buf.Height || x < 0 || x >= h.buf.Width {
+		return 0
+	}
+	return h.buf.Cells[y][x].Width
 }
 
 // Contains returns true if any line in the buffer contains the given substring.

@@ -79,7 +79,8 @@ func NewMenu(items []MenuItem, onSelect func(MenuItem), onClose func(), styles .
 		// Compute column width: widest label + key hint ("  x").
 		maxLen := 0
 		for _, item := range items {
-			l := len([]rune(item.Label)) + 4 // "  x " suffix
+			hintW := displayWidth(string(item.Key))
+			l := displayWidth(item.Label) + hintW + 3 // "  x " suffix
 			if l > maxLen {
 				maxLen = l
 			}
@@ -94,8 +95,12 @@ func NewMenu(items []MenuItem, onSelect func(MenuItem), onClose func(), styles .
 		for i, item := range items {
 			hint := string(item.Key)
 			label := item.Label
-			// Pad so all rows are the same width.
-			inner := label + strings.Repeat(" ", maxLen-len([]rune(label))-3) + " " + hint + " "
+			// Pad so all rows are the same display width.
+			pad := maxLen - displayWidth(label) - displayWidth(hint) - 2
+			if pad < 0 {
+				pad = 0
+			}
+			inner := label + strings.Repeat(" ", pad) + " " + hint + " "
 			line := "│ " + inner + "│"
 
 			style := NewStyle()

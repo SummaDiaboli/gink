@@ -132,6 +132,24 @@ func TestMouseClick_rowLayoutFocusesCorrectComponent(t *testing.T) {
 
 // TestMouseClick_useClickNotCalledWhenClickMisses verifies that a UseClick
 // handler is not called when the click lands outside the component's bounds.
+func TestMouseClick_wideRuneCountsAsTwoColumns(t *testing.T) {
+	called := false
+	h := gink.NewHarness(t, func() gink.Element {
+		return gink.C(func() gink.Element {
+			gink.UseFocus()
+			gink.UseClick(func(x, y int) { called = true })
+			return gink.Text("界")
+		})
+	})
+	defer h.Close()
+
+	h.Click(1, 0)
+
+	if !called {
+		t.Errorf("expected click on wide rune's second column to fire; lines: %v", h.Lines())
+	}
+}
+
 func TestMouseClick_useClickNotCalledWhenClickMisses(t *testing.T) {
 	called := false
 	h := gink.NewHarness(t, func() gink.Element {

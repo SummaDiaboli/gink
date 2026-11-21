@@ -125,11 +125,11 @@ func NewTable(cols []Column, rows [][]string, selected int, onSelect func(int), 
 					visRow[j] = row[colStart+j]
 				}
 			}
-			runes := []rune(tableFormatRow(visRow, visWidths))
+			row := tableFormatRow(visRow, visWidths)
 			if actualIdx == selected {
-				runes[0] = '▶'
+				row = "▶" + strings.TrimPrefix(row, "│")
 			}
-			lines = append(lines, Text(string(runes), itemStyle(actualIdx == selected, isFocused, focusStyle)))
+			lines = append(lines, Text(row, itemStyle(actualIdx == selected, isFocused, focusStyle)))
 		}
 
 		lines = append(lines, Text(tableBorderBot(visWidths, end < len(rows))))
@@ -197,10 +197,10 @@ func Table(cols []Column, rows [][]string, styles ...Style) Element {
 func tableCalcWidths(cols []Column, rows [][]string) []int {
 	widths := make([]int, len(cols))
 	for i, col := range cols {
-		w := len([]rune(col.Header))
+		w := displayWidth(col.Header)
 		for _, row := range rows {
 			if i < len(row) {
-				if cw := len([]rune(row[i])); cw > w {
+				if cw := displayWidth(row[i]); cw > w {
 					w = cw
 				}
 			}
@@ -225,8 +225,7 @@ func tableFormatRow(cells []string, widths []int) string {
 		if i < len(cells) {
 			content = tableTruncate(cells[i], w)
 		}
-		pad := w - len([]rune(content))
-		parts[i] = " " + content + strings.Repeat(" ", pad) + " "
+		parts[i] = " " + padToWidth(content, w) + " "
 	}
 	return "│" + strings.Join(parts, "│") + "│"
 }
@@ -320,15 +319,9 @@ func tableBorderSegs(widths []int) []string {
 	return segs
 }
 
-// tableTruncate clips s to maxWidth runes, replacing the last rune with "…" when
-// truncation occurs. Returns s unchanged when len([]rune(s)) ≤ maxWidth.
+// tableTruncate clips s to maxWidth display columns, replacing the last
+// grapheme with "…" when truncation occurs. Returns s unchanged when its
+// display width is at most maxWidth.
 func tableTruncate(s string, maxWidth int) string {
-	runes := []rune(s)
-	if len(runes) <= maxWidth {
-		return s
-	}
-	if maxWidth <= 1 {
-		return string(runes[:maxWidth])
-	}
-	return string(runes[:maxWidth-1]) + "…"
+	return truncateWithEllipsis(s, maxWidth)
 }

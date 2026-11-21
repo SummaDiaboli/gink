@@ -54,6 +54,84 @@ func TestText_emptyString(t *testing.T) {
 	}
 }
 
+func TestText_wideRunesAdvanceTwoCells(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Row(Text("世界"), Text("X"))
+	}, 8, 3)
+	defer h.Close()
+
+	if h.Line(0) != "世界X" {
+		t.Errorf("line 0: got %q, want %q", h.Line(0), "世界X")
+	}
+	if got := h.CellGrapheme(4, 0); got != "X" {
+		t.Errorf("cell 4: got %q, want %q", got, "X")
+	}
+}
+
+func TestText_zeroWidthClusterOccupiesColumn(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Row(Text("A\tB"), Text("X"))
+	}, 8, 3)
+	defer h.Close()
+
+	if got := h.CellGrapheme(3, 0); got != "X" {
+		t.Errorf("cell 3: got %q, want %q", got, "X")
+	}
+}
+
+func TestText_flagEmojiUsesSingleCluster(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Row(Text("🇺🇸"), Text("X"))
+	}, 8, 3)
+	defer h.Close()
+
+	if got := h.CellGrapheme(0, 0); got != "🇺🇸" {
+		t.Errorf("cell 0: got %q, want %q", got, "🇺🇸")
+	}
+	if got := h.CellGrapheme(2, 0); got != "X" {
+		t.Errorf("cell 2: got %q, want %q", got, "X")
+	}
+}
+
+func TestText_variationSelectorEmojiUsesEndWidth(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Row(Text("❤️"), Text("X"))
+	}, 8, 3)
+	defer h.Close()
+
+	if got := h.CellGrapheme(2, 0); got != "X" {
+		t.Errorf("cell 2: got %q, want %q", got, "X")
+	}
+}
+
+func TestText_clipsWideRuneAtBoundary(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Text("界X")
+	}, 1, 1)
+	defer h.Close()
+
+	if got := h.CellGrapheme(0, 0); got != " " {
+		t.Errorf("cell 0: got %q, want blank (wide rune should not be split)", got)
+	}
+}
+
+func TestText_combiningMarkDoesNotAdvance(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Row(Text("e\u0301"), Text("X"))
+	}, 8, 3)
+	defer h.Close()
+
+	if got := h.CellGrapheme(0, 0); got != "e\u0301" {
+		t.Errorf("cell 0: got %q, want %q", got, "e\u0301")
+	}
+	if got := h.CellGrapheme(1, 0); got != "X" {
+		t.Errorf("cell 1: got %q, want %q", got, "X")
+	}
+	if h.Line(0) != "e\u0301X" {
+		t.Errorf("line 0: got %q, want %q", h.Line(0), "e\u0301X")
+	}
+}
+
 // ── Box ──────────────────────────────────────────────────────────────────────
 
 func TestBox_stacksChildrenVertically(t *testing.T) {

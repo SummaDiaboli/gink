@@ -3,8 +3,9 @@ package gink
 import "strings"
 
 // TextWrapped renders s as one or more lines, wrapping at word boundaries so
-// no line exceeds maxWidth runes. Existing newlines in s are always honoured.
-// Words longer than maxWidth are hard-broken at the width boundary.
+// no line exceeds maxWidth display columns, except for an individual grapheme
+// wider than maxWidth. Existing newlines in s are always honoured. Words
+// longer than maxWidth are hard-broken at grapheme boundaries.
 //
 // When maxWidth is zero or negative, s is returned as a single unsplit line.
 //
@@ -42,8 +43,8 @@ func wrapText(s string, maxWidth int) []string {
 	return result
 }
 
-// wrapParagraph greedily packs words onto lines of at most maxWidth runes.
-// Words longer than maxWidth are hard-broken at the boundary.
+// wrapParagraph greedily packs words onto lines of at most maxWidth display
+// columns. Words longer than maxWidth are hard-broken at grapheme boundaries.
 func wrapParagraph(s string, maxWidth int) []string {
 	if s == "" {
 		return []string{""}
@@ -55,43 +56,72 @@ func wrapParagraph(s string, maxWidth int) []string {
 	}
 
 	var lines []string
-	var cur []rune
+	var cur strings.Builder
+	curWidth := 0
 
 	flush := func() {
-		lines = append(lines, string(cur))
-		cur = nil
+		lines = append(lines, cur.String())
+		cur.Reset()
+		curWidth = 0
 	}
 
 	for _, word := range words {
-		runes := []rune(word)
-
-		// Hard-break any segment of the word that exceeds maxWidth.
-		for len(runes) > maxWidth {
-			if len(cur) > 0 {
+		wordWidth := displayWidth(word)
+		if wordWidth > maxWidth {
+			if curWidth > 0 {
 				flush()
 			}
-			lines = append(lines, string(runes[:maxWidth]))
-			runes = runes[maxWidth:]
-		}
-		if len(runes) == 0 {
+			lines = append(lines, hardBreakWord(word, maxWidth)...)
 			continue
 		}
 
-		// Try to append to the current line.
-		if len(cur) == 0 {
-			cur = runes
-		} else if len(cur)+1+len(runes) <= maxWidth {
-			cur = append(cur, ' ')
-			cur = append(cur, runes...)
+		if curWidth == 0 {
+			cur.WriteString(word)
+			curWidth = wordWidth
+		} else if curWidth+1+wordWidth <= maxWidth {
+			cur.WriteByte(' ')
+			cur.WriteString(word)
+			curWidth += 1 + wordWidth
 		} else {
 			flush()
-			cur = runes
+			cur.WriteString(word)
+			curWidth = wordWidth
 		}
 	}
 
-	if len(cur) > 0 {
+	if curWidth > 0 {
 		flush()
 	}
 
+	return lines
+}
+
+func hardBreakWord(word string, maxWidth int) []string {
+	var lines []string
+	var cur strings.Builder
+	curWidth := 0
+
+	for _, cluster := range splitGraphemes(word) {
+		w := displayWidth(cluster)
+		if w < 1 {
+			w = 1
+		}
+		if curWidth > 0 && curWidth+w > maxWidth {
+			lines = append(lines, cur.String())
+			cur.Reset()
+			curWidth = 0
+		}
+		cur.WriteString(cluster)
+		curWidth += w
+		if curWidth >= maxWidth {
+			lines = append(lines, cur.String())
+			cur.Reset()
+			curWidth = 0
+		}
+	}
+
+	if curWidth > 0 {
+		lines = append(lines, cur.String())
+	}
 	return lines
 }

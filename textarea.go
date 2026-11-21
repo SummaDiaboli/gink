@@ -8,7 +8,7 @@ import "strings"
 // scrolls as the cursor moves.
 //
 // Cursor movement: Left/Right within a line, Up/Down between lines, Home/End.
-// Enter splits the line at the cursor. Backspace deletes the character before
+// Enter splits the line at the cursor. Backspace deletes the grapheme before
 // the cursor, merging lines when at column 0.
 //
 // An optional style controls the cursor highlight (defaults to reverse video):
@@ -35,9 +35,9 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 			curLine = nLines - 1
 			setCurLine(curLine)
 		}
-		lineRunes := []rune(lines[curLine])
-		if curCol > len(lineRunes) {
-			curCol = len(lineRunes)
+		curClusters := splitGraphemes(lines[curLine])
+		if curCol > len(curClusters) {
+			curCol = len(curClusters)
 			setCurCol(curCol)
 		}
 
@@ -61,9 +61,9 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 				cl = nl - 1
 			}
 			cc := curCol
-			lr := []rune(ls[cl])
-			if cc > len(lr) {
-				cc = len(lr)
+			clusters := splitGraphemes(ls[cl])
+			if cc > len(clusters) {
+				cc = len(clusters)
 			}
 
 			switch ev.Key {
@@ -72,11 +72,11 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 					setCurCol(cc - 1)
 				} else if cl > 0 {
 					setCurLine(cl - 1)
-					setCurCol(len([]rune(ls[cl-1])))
+					setCurCol(len(splitGraphemes(ls[cl-1])))
 				}
 
 			case KeyRight:
-				if cc < len(lr) {
+				if cc < len(clusters) {
 					setCurCol(cc + 1)
 				} else if cl < nl-1 {
 					setCurLine(cl + 1)
@@ -86,7 +86,7 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 			case KeyUp:
 				if cl > 0 {
 					setCurLine(cl - 1)
-					prevLen := len([]rune(ls[cl-1]))
+					prevLen := len(splitGraphemes(ls[cl-1]))
 					if cc > prevLen {
 						setCurCol(prevLen)
 					} else {
@@ -97,7 +97,7 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 			case KeyDown:
 				if cl < nl-1 {
 					setCurLine(cl + 1)
-					nextLen := len([]rune(ls[cl+1]))
+					nextLen := len(splitGraphemes(ls[cl+1]))
 					if cc > nextLen {
 						setCurCol(nextLen)
 					} else {
@@ -109,11 +109,13 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 				setCurCol(0)
 
 			case KeyEnd:
-				setCurCol(len(lr))
+				setCurCol(len(clusters))
 
 			case KeyEnter:
-				before := string(lr[:cc])
-				after := string(lr[cc:])
+				line := ls[cl]
+				off := byteOffsetAtGrapheme(line, cc)
+				before := line[:off]
+				after := line[off:]
 				newLines := make([]string, 0, nl+1)
 				newLines = append(newLines, ls[:cl]...)
 				newLines = append(newLines, before, after)
@@ -124,7 +126,7 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 
 			case KeyBackspace, KeyBackspace2:
 				if cc > 0 {
-					newLine := string(lr[:cc-1]) + string(lr[cc:])
+					newLine := spliceGraphemes(ls[cl], cc-1, cc, "")
 					newLines := make([]string, nl)
 					copy(newLines, ls)
 					newLines[cl] = newLine
@@ -132,8 +134,8 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 					setCurCol(cc - 1)
 				} else if cl > 0 {
 					prevLine := ls[cl-1]
-					prevLen := len([]rune(prevLine))
-					merged := prevLine + string(lr)
+					prevLen := len(splitGraphemes(prevLine))
+					merged := prevLine + ls[cl]
 					newLines := make([]string, 0, nl-1)
 					newLines = append(newLines, ls[:cl-1]...)
 					newLines = append(newLines, merged)
@@ -146,13 +148,14 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 			case KeyCtrlV:
 				text := normalizeNewlines(clipRead(), "\n")
 				pastedLines := strings.Split(text, "\n")
-				// Merge first pasted line into current line at cursor.
-				firstPart := string(lr[:cc]) + pastedLines[0]
-				lastPart := pastedLines[len(pastedLines)-1] + string(lr[cc:])
+				line := ls[cl]
+				off := byteOffsetAtGrapheme(line, cc)
+				firstPart := line[:off] + pastedLines[0]
+				lastPart := pastedLines[len(pastedLines)-1] + line[off:]
 				newLines := make([]string, 0, nl+len(pastedLines)-1)
 				newLines = append(newLines, ls[:cl]...)
 				if len(pastedLines) == 1 {
-					newLines = append(newLines, firstPart+string(lr[cc:]))
+					newLines = append(newLines, firstPart+line[off:])
 				} else {
 					newLines = append(newLines, firstPart)
 					newLines = append(newLines, pastedLines[1:len(pastedLines)-1]...)
@@ -160,17 +163,16 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 				}
 				newLines = append(newLines, ls[cl+1:]...)
 				onChange(strings.Join(newLines, "\n"))
-				// Move cursor to end of pasted content.
 				newCurLine := cl + len(pastedLines) - 1
-				newCurCol := len([]rune(pastedLines[len(pastedLines)-1]))
+				newCurCol := len(splitGraphemes(pastedLines[len(pastedLines)-1]))
 				if len(pastedLines) == 1 {
-					newCurCol = cc + len([]rune(pastedLines[0]))
+					newCurCol = cc + len(splitGraphemes(pastedLines[0]))
 				}
 				setCurLine(newCurLine)
 				setCurCol(newCurCol)
 
 			case KeyRune:
-				newLine := string(lr[:cc]) + string(ev.Rune) + string(lr[cc:])
+				newLine := spliceGraphemes(ls[cl], cc, cc, string(ev.Rune))
 				newLines := make([]string, nl)
 				copy(newLines, ls)
 				newLines[cl] = newLine
@@ -187,22 +189,22 @@ func NewTextArea(value string, onChange func(string), height int, styles ...Styl
 				elems[i] = Text("")
 				continue
 			}
-			lr := []rune(lines[src])
+			clusters := splitGraphemes(lines[src])
 			if !isFocused || src != curLine {
-				elems[i] = Text(string(lr))
+				elems[i] = Text(strings.Join(clusters, ""))
 				continue
 			}
-			// Render cursor on the active line.
-			before := string(lr[:curCol])
-			var curChar string
-			if curCol < len(lr) {
-				curChar = string(lr[curCol])
-			} else {
-				curChar = " "
+			before := ""
+			if curCol > 0 {
+				before = strings.Join(clusters[:min(curCol, len(clusters))], "")
+			}
+			curChar := " "
+			if curCol >= 0 && curCol < len(clusters) {
+				curChar = clusters[curCol]
 			}
 			after := ""
-			if curCol < len(lr) {
-				after = string(lr[curCol+1:])
+			if curCol+1 < len(clusters) {
+				after = strings.Join(clusters[curCol+1:], "")
 			}
 			elems[i] = Row(Text(before), Text(curChar, cursorStyle), Text(after))
 		}

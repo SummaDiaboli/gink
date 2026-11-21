@@ -99,7 +99,12 @@ func (r *renderer) flush(next *Buffer) {
 	}
 
 	for _, u := range updates {
-		r.screen.SetContent(u.X, u.Y, u.Cell.Rune, nil, u.Cell.Style)
+		if u.Cell.Continuation {
+			r.screen.SetContent(u.X, u.Y, ' ', nil, u.Cell.Style)
+			continue
+		}
+		main, combining := cellRunes(u.Cell)
+		r.screen.SetContent(u.X, u.Y, main, combining, u.Cell.Style)
 	}
 	if len(updates) > 0 {
 		r.screen.Show()

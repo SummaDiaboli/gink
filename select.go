@@ -52,9 +52,9 @@ func NewSelect(options []string, value string, onChange func(string), styles ...
 		UseClick(func(localX, _ int) {
 			var mid int
 			if isFocused {
-				mid = (len([]rune(value)) + 8) / 2
+				mid = (displayWidth(value) + 8) / 2
 			} else {
-				mid = (len([]rune(value)) + 4) / 2
+				mid = (displayWidth(value) + 4) / 2
 			}
 			if localX < mid {
 				if idx > 0 {

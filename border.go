@@ -67,12 +67,11 @@ func buildTopBorder(title string, innerWidth int) string {
 		return "┌" + strings.Repeat("─", innerWidth) + "┐"
 	}
 
-	titleRunes := []rune(title)
-
 	// Layout: ┌ ─   title   ─ ... ┐
-	// Fixed overhead for framing the title: "─ " before + " ─" after = 4 chars.
+	// Fixed overhead for framing the title: "─ " before + " ─" after = 4 columns.
 	overhead := 4
-	remaining := innerWidth - overhead - len(titleRunes)
+	titleWidth := displayWidth(title)
+	remaining := innerWidth - overhead - titleWidth
 
 	if remaining < 0 {
 		// Title doesn't fit cleanly — truncate it to leave room for the frame.
@@ -80,11 +79,13 @@ func buildTopBorder(title string, innerWidth int) string {
 		if maxTitle < 0 {
 			maxTitle = 0
 		}
-		if len(titleRunes) > maxTitle {
-			titleRunes = titleRunes[:maxTitle]
+		title = truncateToWidth(title, maxTitle)
+		titleWidth = displayWidth(title)
+		remaining = innerWidth - overhead - titleWidth
+		if remaining < 0 {
+			remaining = 0
 		}
-		remaining = 0
 	}
 
-	return "┌─ " + string(titleRunes) + " ─" + strings.Repeat("─", remaining) + "┐"
+	return "┌─ " + title + " ─" + strings.Repeat("─", remaining) + "┐"
 }

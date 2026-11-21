@@ -1,5 +1,6 @@
 package gink
 
+import "strings"
 
 // NewInput returns a controlled single-line text input component.
 // "Controlled" means the parent component owns the state — NewInput renders
@@ -31,9 +32,9 @@ func NewInput(value string, onChange func(string)) func() Element {
 			}
 			switch ev.Key {
 			case KeyBackspace, KeyBackspace2: // handle both BS and DEL variants
-				runes := []rune(value)
-				if len(runes) > 0 {
-					onChange(string(runes[:len(runes)-1]))
+				clusters := splitGraphemes(value)
+				if len(clusters) > 0 {
+					onChange(strings.Join(clusters[:len(clusters)-1], ""))
 				}
 			case KeyCtrlV:
 				// Collapse newlines — single-line input cannot display them.

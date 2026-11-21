@@ -49,10 +49,10 @@ func addScrollIndicators(screen *Buffer, offset, contentH int) {
 	right := screen.Width - 1
 	style := NewStyle().Foreground(ColorBrightWhite).toTcell()
 	if offset > 0 {
-		screen.Cells[0][right] = Cell{Rune: '↑', Style: style}
+		setBufferRune(screen, right, 0, '↑', style)
 	}
 	if offset+screen.Height < contentH {
-		screen.Cells[screen.Height-1][right] = Cell{Rune: '↓', Style: style}
+		setBufferRune(screen, right, screen.Height-1, '↓', style)
 	}
 }
 

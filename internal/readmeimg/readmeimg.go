@@ -36,7 +36,8 @@ import (
 type Snapshot struct {
 	Width  int
 	Height int
-	Runes  [][]rune
+	Cells  [][]string
+	Widths [][]int
 	Styles [][]tcell.Style
 }
 
@@ -45,24 +46,22 @@ func Capture(h *gink.Harness) *Snapshot {
 	s := &Snapshot{
 		Width:  h.Width,
 		Height: h.Height,
-		Runes:  make([][]rune, h.Height),
+		Cells:  make([][]string, h.Height),
+		Widths: make([][]int, h.Height),
 		Styles: make([][]tcell.Style, h.Height),
 	}
-	lines := h.Lines()
 	for y := 0; y < h.Height; y++ {
-		var src []rune
-		if y < len(lines) {
-			src = []rune(lines[y])
-		}
-		row := make([]rune, h.Width)
+		row := make([]string, h.Width)
+		widths := make([]int, h.Width)
 		for x := 0; x < h.Width; x++ {
-			if x < len(src) {
-				row[x] = src[x]
-			} else {
-				row[x] = ' '
+			row[x] = h.CellGrapheme(x, y)
+			widths[x] = h.CellWidth(x, y)
+			if widths[x] < 1 {
+				widths[x] = 1
 			}
 		}
-		s.Runes[y] = row
+		s.Cells[y] = row
+		s.Widths[y] = widths
 		s.Styles[y] = make([]tcell.Style, h.Width)
 		for x := 0; x < h.Width; x++ {
 			s.Styles[y][x] = h.CellStyle(x, y)
@@ -279,13 +278,26 @@ func render(dst draw.Image, s *Snapshot, title string) {
 
 	for y := 0; y < s.Height; y++ {
 		base := oy + y*cellH + ascent + 1
-		for x := 0; x < s.Width; x++ {
-			drawCell(dst, ox+x*cellW, oy+y*cellH, base, s.Runes[y][x], s.Styles[y][x])
+		for x := 0; x < s.Width; {
+			glyph := s.Cells[y][x]
+			if glyph == "" {
+				x++
+				continue
+			}
+			span := s.Widths[y][x]
+			if span < 1 {
+				span = 1
+			}
+			if span > s.Width-x {
+				span = s.Width - x
+			}
+			drawCell(dst, ox+x*cellW, oy+y*cellH, base, glyph, span, s.Styles[y][x])
+			x += span
 		}
 	}
 }
 
-func drawCell(dst draw.Image, px, py, base int, r rune, style tcell.Style) {
+func drawCell(dst draw.Image, px, py, base int, glyph string, span int, style tcell.Style) {
 	fg, bg, attr := style.Decompose()
 	fgCol := mapColor(fg, defaultFG)
 	bgCol := mapColor(bg, defaultBG)
@@ -293,26 +305,27 @@ func drawCell(dst draw.Image, px, py, base int, r rune, style tcell.Style) {
 		fgCol, bgCol = bgCol, fgCol
 	}
 
-	draw.Draw(dst, image.Rect(px, py, px+cellW, py+cellH), image.NewUniform(bgCol), image.Point{}, draw.Src)
-	if r == ' ' || r == 0 {
+	spanW := cellW * span
+	draw.Draw(dst, image.Rect(px, py, px+spanW, py+cellH), image.NewUniform(bgCol), image.Point{}, draw.Src)
+	if glyph == "" || glyph == " " {
 		return
 	}
 
-	adv := font.MeasureString(face, string(r)).Ceil()
-	xoff := (cellW - adv) / 2
+	adv := font.MeasureString(face, glyph).Ceil()
+	xoff := (spanW - adv) / 2
 	if xoff < 0 {
 		xoff = 0
 	}
 	d := &font.Drawer{Dst: dst, Src: image.NewUniform(fgCol), Face: face}
 	d.Dot = fixed.P(px+xoff, base)
-	d.DrawString(string(r))
+	d.DrawString(glyph)
 	if attr&tcell.AttrBold != 0 {
 		d.Dot = fixed.P(px+xoff+1, base)
-		d.DrawString(string(r))
+		d.DrawString(glyph)
 	}
 	if attr&tcell.AttrUnderline != 0 {
 		uy := base + 2
-		draw.Draw(dst, image.Rect(px, uy, px+cellW, uy+1), image.NewUniform(fgCol), image.Point{}, draw.Src)
+		draw.Draw(dst, image.Rect(px, uy, px+spanW, uy+1), image.NewUniform(fgCol), image.Point{}, draw.Src)
 	}
 }
 

@@ -118,7 +118,7 @@ func TestNewTextArea_rightMovesAndTypingInserts(t *testing.T) {
 	h.SendRune('a')
 	h.SendRune('b') // value = "ab", cursor at col 2
 	h.SendKey(gink.KeyLeft)
-	h.SendKey(gink.KeyLeft) // cursor back at col 0
+	h.SendKey(gink.KeyLeft)  // cursor back at col 0
 	h.SendKey(gink.KeyRight) // cursor at col 1
 	h.SendRune('x')          // insert between 'a' and 'b' → "axb"
 
@@ -162,10 +162,10 @@ func TestNewTextArea_endMovesToLineEnd(t *testing.T) {
 	defer h.Close()
 
 	h.SendRune('a')
-	h.SendRune('b')           // "ab", cursor col 2
-	h.SendKey(gink.KeyHome)   // cursor col 0
-	h.SendKey(gink.KeyEnd)    // cursor back at col 2
-	h.SendRune('x')           // "abx"
+	h.SendRune('b')         // "ab", cursor col 2
+	h.SendKey(gink.KeyHome) // cursor col 0
+	h.SendKey(gink.KeyEnd)  // cursor back at col 2
+	h.SendRune('x')         // "abx"
 
 	if !h.Contains("abx") {
 		t.Errorf("expected 'abx', screen: %v", h.Lines())
@@ -227,6 +227,28 @@ func TestNewTextArea_viewportScrollsWithCursor(t *testing.T) {
 	// "line0" should have scrolled out.
 	if h.Contains("line0") {
 		t.Error("expected 'line0' to scroll out of view")
+	}
+}
+
+func TestNewTextArea_backspaceDeletesGrapheme(t *testing.T) {
+	val, setVal := "", func(string) {}
+	h := gink.NewHarness(t, func() gink.Element {
+		var sv func(string)
+		val, sv = gink.UseState(val)
+		setVal = sv
+		return gink.C(gink.NewTextArea(val, setVal, 3))
+	})
+	defer h.Close()
+
+	h.SendRune('e')
+	h.SendRune('\u0301')
+	if val != "e\u0301" {
+		t.Fatalf("after typing combining mark: got %q, want %q", val, "e\u0301")
+	}
+
+	h.Backspace()
+	if val != "" {
+		t.Errorf("after Backspace: got %q, want empty", val)
 	}
 }
 

@@ -191,6 +191,31 @@ func TestNewInput_backspaceDeletesGrapheme(t *testing.T) {
 	}
 }
 
+func TestNewInput_backspaceDeletesSkinToneEmoji(t *testing.T) {
+	var value string
+	h := NewHarness(t, func() Element {
+		v, s := UseState("")
+		value = v
+		return C(NewInput(v, func(next string) {
+			value = next
+			s(next)
+		}))
+	})
+	defer h.Close()
+
+	h.SendRune('A')
+	h.SendRune('👍')
+	h.SendRune('🏽')
+	if value != "A👍🏽" {
+		t.Fatalf("after typing skin-tone emoji: got %q, want %q", value, "A👍🏽")
+	}
+
+	h.Backspace()
+	if value != "A" {
+		t.Errorf("after Backspace: got %q, want %q", value, "A")
+	}
+}
+
 func TestNewInput_backspaceOnEmptyIsNoop(t *testing.T) {
 	h := NewHarness(t, func() Element {
 		v, s := UseState("")

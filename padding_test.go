@@ -98,3 +98,26 @@ func TestPadding_worksInsideBox(t *testing.T) {
 		t.Errorf("line 4: got %q, want %q", h.Line(4), "Below")
 	}
 }
+
+func TestPadding_leftOffsetWithWideSibling(t *testing.T) {
+	h := NewHarnessSize(t, func() Element {
+		return Row(Padding(Pad{Left: 1}, Text("界")), Text("X"))
+	}, 8, 2)
+	defer h.Close()
+
+	if got := h.CellGrapheme(0, 0); got != " " {
+		t.Errorf("cell 0 = %q, want blank", got)
+	}
+	if got := h.CellGrapheme(1, 0); got != "界" {
+		t.Errorf("cell 1 = %q, want %q", got, "界")
+	}
+	if got := h.CellWidth(1, 0); got != 2 {
+		t.Errorf("cell 1 width = %d, want 2", got)
+	}
+	if got := h.CellGrapheme(2, 0); got != "" {
+		t.Errorf("cell 2 = %q, want empty", got)
+	}
+	if got := h.CellGrapheme(3, 0); got != "X" {
+		t.Errorf("cell 3 = %q, want %q", got, "X")
+	}
+}

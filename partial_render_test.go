@@ -328,3 +328,33 @@ func TestPartialRender_layoutWidthChangeRerendersComponent(t *testing.T) {
 		t.Errorf("component rendered %d times, want 2", count)
 	}
 }
+
+func TestPartialRender_cachedWideGraphemeRestoredByColumns(t *testing.T) {
+	var setA func(string)
+	compA := func() Element {
+		val, setter := UseState("A")
+		setA = setter
+		return Text(val)
+	}
+
+	h := NewHarnessSize(t, func() Element {
+		return Row(C(compA), Text("界X"))
+	}, 8, 3)
+	defer h.Close()
+
+	setA("AB")
+	h.Render()
+
+	if got := h.CellGrapheme(2, 0); got != "界" {
+		t.Errorf("cell 2 = %q, want %q", got, "界")
+	}
+	if got := h.CellWidth(2, 0); got != 2 {
+		t.Errorf("cell 2 width = %d, want 2", got)
+	}
+	if got := h.CellGrapheme(3, 0); got != "" {
+		t.Errorf("cell 3 = %q, want empty", got)
+	}
+	if got := h.CellGrapheme(4, 0); got != "X" {
+		t.Errorf("cell 4 = %q, want %q", got, "X")
+	}
+}

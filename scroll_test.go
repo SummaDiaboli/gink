@@ -143,6 +143,26 @@ func TestScroll_upIndicatorClearsWideContinuation(t *testing.T) {
 	}
 }
 
+func TestScroll_downIndicatorClearsWideContinuation(t *testing.T) {
+	items := make([]Element, 20)
+	for i := range items {
+		items[i] = Text("界界")
+	}
+	h := NewHarnessSize(t, func() Element { return Box(items...) }, 4, 3)
+	defer h.Close()
+
+	bottom := h.Height - 1
+	if got := h.CellGrapheme(3, bottom); got != "↓" {
+		t.Errorf("cell 3: got %q, want %q", got, "↓")
+	}
+	if got := h.CellGrapheme(2, bottom); got != " " {
+		t.Errorf("cell 2: got %q, want blank", got)
+	}
+	if w := h.CellWidth(2, bottom); w != 1 {
+		t.Errorf("cell 2 width = %d, want 1", w)
+	}
+}
+
 func TestScroll_noIndicatorsWhenContentFits(t *testing.T) {
 	h := NewHarness(t, func() Element {
 		return Box(Text("Alpha"), Text("Beta"))

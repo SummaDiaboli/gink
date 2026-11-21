@@ -111,3 +111,27 @@ func TestNewTextArea_pasteMultiLine(t *testing.T) {
 		t.Errorf("expected %q after Ctrl+V, got %q", "AB\nC\nD", value)
 	}
 }
+
+func TestNewTextArea_pasteMultiLineAtGraphemeCursor(t *testing.T) {
+	clipRead = func() (string, error) { return "B\nC", nil }
+	clipWrite = func(s string) error { return nil }
+	t.Cleanup(func() { clipRead = defaultClipRead; clipWrite = defaultClipWrite })
+
+	value := "e\u0301\nD"
+	setValue := func(s string) { value = s }
+	h := NewHarness(t, func() Element {
+		return C(NewTextArea(value, setValue, 4))
+	})
+	defer h.Close()
+
+	h.SendKey(KeyEnd)
+	h.SendKey(KeyCtrlV)
+	if value != "e\u0301B\nC\nD" {
+		t.Fatalf("value after Ctrl+V = %q, want %q", value, "e\u0301B\nC\nD")
+	}
+
+	h.SendRune('X')
+	if value != "e\u0301B\nCX\nD" {
+		t.Errorf("value after typing = %q, want %q", value, "e\u0301B\nCX\nD")
+	}
+}

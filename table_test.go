@@ -127,6 +127,37 @@ func TestTable_maxWidthAlsoCapsShorterHeader(t *testing.T) {
 	}
 }
 
+func TestTable_maxWidthTruncatesWideGraphemes(t *testing.T) {
+	cols := []Column{{Header: "名", MaxWidth: 5}}
+	rows := [][]string{{"世界世界"}}
+	h := NewHarnessSize(t, func() Element { return Table(cols, rows) }, 12, 6)
+	defer h.Close()
+
+	if got := h.Line(3); got != "│ 世界… │" {
+		t.Errorf("data row = %q, want %q", got, "│ 世界… │")
+	}
+	if got := displayWidth(h.Line(0)); got != 9 {
+		t.Errorf("top border width = %d, want 9", got)
+	}
+}
+
+func TestTable_wideAndNarrowCellsAlignByColumns(t *testing.T) {
+	cols := []Column{{Header: "名"}, {Header: "S"}}
+	rows := [][]string{{"界", "A"}, {"AB", "B"}}
+	h := NewHarnessSize(t, func() Element { return Table(cols, rows) }, 20, 6)
+	defer h.Close()
+
+	if got := h.Line(3); got != "│ 界 │ A │" {
+		t.Errorf("row 0 = %q, want %q", got, "│ 界 │ A │")
+	}
+	if got := h.Line(4); got != "│ AB │ B │" {
+		t.Errorf("row 1 = %q, want %q", got, "│ AB │ B │")
+	}
+	if displayWidth(h.Line(3)) != displayWidth(h.Line(4)) {
+		t.Errorf("rows have different display widths: %q and %q", h.Line(3), h.Line(4))
+	}
+}
+
 func TestTable_emptyRowsHasFourLines(t *testing.T) {
 	// top + header + separator + bottom = 4 lines (indices 0-3); line 4 is empty.
 	cols := []Column{{Header: "Name"}, {Header: "Value"}}

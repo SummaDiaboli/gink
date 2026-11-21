@@ -113,6 +113,26 @@ func TestNewTabs_clickWideTabUsesDisplayColumns(t *testing.T) {
 	}
 }
 
+func TestNewTabs_wideLabelsUseDisplayColumns(t *testing.T) {
+	labels := []string{"界界", "X"}
+	var active string
+	h := NewHarness(t, func() Element {
+		a, setActive := UseState("X")
+		active = a
+		return C(NewTabs(labels, a, setActive))
+	})
+	defer h.Close()
+
+	if got := h.Line(0); got != " 界界 │ X" {
+		t.Errorf("line = %q, want %q", got, " 界界 │ X")
+	}
+
+	h.Click(5, 0)
+	if active != "界界" {
+		t.Errorf("click in wide tab = %q, want %q", active, "界界")
+	}
+}
+
 func TestNewTabs_ignoredWhenUnfocused(t *testing.T) {
 	var lastActive string
 	h := NewHarness(t, func() Element {

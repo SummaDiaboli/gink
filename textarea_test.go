@@ -4,7 +4,21 @@ import (
 	"testing"
 
 	"github.com/SummaDiaboli/gink"
+	"github.com/gdamore/tcell/v2"
 )
+
+func newTextAreaHarness(t *testing.T, initial string, height int) (*gink.Harness, *string, func(string)) {
+	t.Helper()
+	val := initial
+	var setVal func(string)
+	h := gink.NewHarness(t, func() gink.Element {
+		var sv func(string)
+		val, sv = gink.UseState(val)
+		setVal = sv
+		return gink.C(gink.NewTextArea(val, setVal, height))
+	})
+	return h, &val, func(next string) { setVal(next) }
+}
 
 // TestNewTextArea_rendersValueAsLines verifies that a multi-line value is
 // split across rows in the viewport.
@@ -249,6 +263,88 @@ func TestNewTextArea_backspaceDeletesGrapheme(t *testing.T) {
 	h.Backspace()
 	if val != "" {
 		t.Errorf("after Backspace: got %q, want empty", val)
+	}
+}
+
+func TestNewTextArea_rightMovesByGrapheme(t *testing.T) {
+	h, val, _ := newTextAreaHarness(t, "e\u0301x", 3)
+	defer h.Close()
+
+	h.SendKey(gink.KeyHome)
+	h.SendKey(gink.KeyRight)
+	h.SendRune('!')
+
+	if *val != "e\u0301!x" {
+		t.Errorf("value = %q, want %q", *val, "e\u0301!x")
+	}
+}
+
+func TestNewTextArea_cursorHighlightsWholeGrapheme(t *testing.T) {
+	h, _, _ := newTextAreaHarness(t, "e\u0301x", 3)
+	defer h.Close()
+
+	h.SendKey(gink.KeyHome)
+
+	if got := h.CellGrapheme(0, 0); got != "e\u0301" {
+		t.Errorf("cell 0 = %q, want %q", got, "e\u0301")
+	}
+	_, _, cursorAttr := h.CellStyle(0, 0).Decompose()
+	if cursorAttr&tcell.AttrReverse == 0 {
+		t.Error("cursor cell should use reverse video")
+	}
+	_, _, plainAttr := h.CellStyle(1, 0).Decompose()
+	if plainAttr&tcell.AttrReverse != 0 {
+		t.Error("non-cursor cell should not use reverse video")
+	}
+}
+
+func TestNewTextArea_enterSplitsAtGraphemeBoundary(t *testing.T) {
+	h, val, _ := newTextAreaHarness(t, "e\u0301x", 3)
+	defer h.Close()
+
+	h.SendKey(gink.KeyHome)
+	h.SendKey(gink.KeyRight)
+	h.Enter()
+
+	if *val != "e\u0301\nx" {
+		t.Errorf("value = %q, want %q", *val, "e\u0301\nx")
+	}
+	if got := h.Line(0); got != "e\u0301" {
+		t.Errorf("line 0 = %q, want %q", got, "e\u0301")
+	}
+	if got := h.Line(1); got != "x" {
+		t.Errorf("line 1 = %q, want %q", got, "x")
+	}
+}
+
+func TestNewTextArea_backspaceMergesLinesByGrapheme(t *testing.T) {
+	h, val, _ := newTextAreaHarness(t, "e\u0301\n界", 3)
+	defer h.Close()
+
+	h.SendKey(gink.KeyDown)
+	h.Backspace()
+	if *val != "e\u0301界" {
+		t.Fatalf("value after Backspace = %q, want %q", *val, "e\u0301界")
+	}
+
+	h.SendRune('!')
+	if *val != "e\u0301!界" {
+		t.Errorf("value after typing = %q, want %q", *val, "e\u0301!界")
+	}
+}
+
+func TestNewTextArea_externalValueClampsCursorByGrapheme(t *testing.T) {
+	h, val, setVal := newTextAreaHarness(t, "e\u0301x", 3)
+	defer h.Close()
+
+	h.SendKey(gink.KeyHome)
+	h.SendKey(gink.KeyRight)
+	setVal("e\u0301")
+	h.Render()
+	h.SendRune('X')
+
+	if *val != "e\u0301X" {
+		t.Errorf("value = %q, want %q", *val, "e\u0301X")
 	}
 }
 
